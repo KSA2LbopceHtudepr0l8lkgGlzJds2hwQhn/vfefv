@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Flappy Bird Plus: Shop Edition</title>
+  <style>
+    :root {
+      --primary: #f43f5e;
+      --accent: #22c55e;
+      --dark: #1e293b;
+      --light: #f8fafc;
+      --coin: #fbbf24;
+      --font: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: var(--font);
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      height: 100%;
+      max-height: 650px;
+      background: #000;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    /* UI Overlay Layer */
+    #ui-layer {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    /* HUD */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 16px;
+      pointer-events: auto;
+    }
+
+    .score-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .score-box {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--dark);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .coin-display {
+      background: rgba(255, 240, 200, 0.95);
+      padding: 6px 12px;
+      border-radius: 15px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #b45309;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border: 1px solid #fcd34d;
+    }
+    .coin-icon {
+      width: 16px; height: 16px;
+      background: #fbbf24;
+      border-radius: 50%;
+      border: 2px solid #b45309;
+      box-shadow: inset -2px -2px 0 rgba(0,0,0,0.2);
+    }
+
+    .btn-icon {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.1s;
+    }
+    .btn-icon:active { transform: scale(0.95); }
+
+    /* Menus */
+    .menu-screen {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      transition: opacity 0.2s;
+      z-index: 20;
+    }
+
+    .hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+
+    .card {
+      background: white;
+      width: 85%;
+      padding: 24px;
+      border-radius: 24px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+    }
+    
+    .card.shop-card {
+      width: 90%;
+      height: 80%;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    h1 { margin: 0 0 10px 0; color: var(--dark); font-size: 28px; font-weight: 900; text-transform: uppercase; }
+    h2 { margin: 0 0 20px 0; color: var(--primary); font-size: 16px; font-weight: 600; }
+    p.subtitle { margin: 0 0 15px 0; color: #64748b; font-size: 14px; font-weight: 600; }
+
+    /* Buttons */
+    .play-btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 16px;
+      background: var(--accent);
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #15803d;
+      margin-top: 10px;
+    }
+    .play-btn:active { transform: translateY(4px); box-shadow: none; }
+
+    .shop-btn-main {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 16px;
+      background: #3b82f6;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #1d4ed8;
+      margin-top: 10px;
+    }
+
+    /* Difficulty Toggles */
+    .control-group { display: flex; justify: center; gap: 8px; margin-bottom: 20px; }
+    .pill-btn {
+      padding: 8px 12px; border-radius: 20px; border: 2px solid #e2e8f0;
+      background: white; color: #64748b; font-weight: 600; cursor: pointer; font-size: 13px;
+    }
+    .pill-btn.active { border-color: var(--accent); background: #dcfce7; color: #166534; }
+
+    /* Shop Styling */
+    .shop-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 12px;
+      border: none;
+      background: #f1f5f9;
+      color: #64748b;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-btn.active { background: #3b82f6; color: white; }
+
+    .shop-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      overflow-y: auto;
+      flex: 1;
+      padding: 4px;
+    }
+
+    .shop-item {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .shop-item.owned { border-color: #3b82f6; background: #eff6ff; }
+    .shop-item.equipped { border-color: #22c55e; background: #dcfce7; box-shadow: 0 0 0 2px #22c55e; }
+
+    .item-preview {
+      width: 50px; height: 50px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+    }
+
+    .item-info h3 { margin: 0; font-size: 14px; color: var(--dark); }
+    .price-tag {
+      font-size: 12px;
+      font-weight: 700;
+      color: #b45309;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .status-text { font-size: 11px; font-weight: 700; text-transform: uppercase; margin-top: 5px; }
+    .status-text.equip { color: #3b82f6; }
+    .status-text.equipped { color: #22c55e; }
+    
+    .close-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: #f1f5f9;
+      border: none;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-weight: bold;
+      color: #64748b;
+    }
+
+    /* Notification */
+    .toast {
+      position: absolute;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="game"></canvas>
+
+  <div id="ui-layer">
+    <!-- HUD -->
+    <div class="hud">
+      <div class="score-group">
+        <div class="score-box" id="score-display">0</div>
+        <div class="coin-display">
+          <div class="coin-icon"></div>
+          <span id="coin-display">0</span>
+        </div>
+      </div>
+      <button class="btn-icon" id="pause-btn">⏸</button>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="menu-screen">
+      <div class="card">
+        <h1 id="menu-title">Flappy Shop</h1>
+        <p class="subtitle" id="menu-subtitle">Tap play to start!</p>
+        
+        <div class="coin-display" style="justify-content: center; margin-bottom: 15px; background: transparent; border: none; font-size: 18px;">
+          <div class="coin-icon" style="width: 24px; height: 24px;"></div>
+          <span id="menu-coins">0</span> Coins
+        </div>
+
+        <div class="control-group">
+          <button class="pill-btn" onclick="setDifficulty('Easy')" id="btn-easy">Easy</button>
+          <button class="pill-btn active" onclick="setDifficulty('Normal')" id="btn-normal">Normal</button>
+          <button class="pill-btn" onclick="setDifficulty('Hard')" id="btn-hard">Hard</button>
+        </div>
+
+        <button class="play-btn" id="action-btn">PLAY</button>
+        <button class="shop-btn-main" id="open-shop-btn">🛒 SHOP</button>
+      </div>
+    </div>
+    
+    <!-- SHOP MENU -->
+    <div id="shop-menu" class="menu-screen hidden">
+      <div class="card shop-card">
+        <button class="close-btn" id="close-shop-btn">✕</button>
+        <h1>Store</h1>
+        <div class="coin-display" style="align-self: center; margin-bottom: 10px;">
+          <div class="coin-icon"></div>
+          <span id="shop-coins">0</span>
+        </div>
+
+        <div class="shop-tabs">
+          <button class="tab-btn active" id="tab-skins">Birds</button>
+          <button class="tab-btn" id="tab-bgs">Scenes</button>
+        </div>
+
+        <div class="shop-grid" id="shop-grid">
+          <!-- Items injected by JS -->
+        </div>
+      </div>
+    </div>
+    
+    <!-- PAUSE MENU -->
+    <div id="pause-menu" class="menu-screen hidden">
+      <div class="card" style="width: auto; min-width: 200px;">
+        <h1>Paused</h1>
+        <button class="play-btn" id="resume-btn" style="background: var(--primary); box-shadow: 0 4px 0 #be123c;">RESUME</button>
+        <button class="pill-btn" id="quit-btn" style="margin-top: 15px;">Quit</button>
+      </div>
+    </div>
+
+    <div id="toast" class="toast">Not enough coins!</div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  
+  // UI References
+  const ui = {
+    score: document.getElementById('score-display'),
+    coins: document.getElementById('coin-display'),
+    menuCoins: document.getElementById('menu-coins'),
+    shopCoins: document.getElementById('shop-coins'),
+    mainMenu: document.getElementById('main-menu'),
+    shopMenu: document.getElementById('shop-menu'),
+    shopGrid: document.getElementById('shop-grid'),
+    pauseMenu: document.getElementById('pause-menu'),
+    toast: document.getElementById('toast'),
+    menuTitle: document.getElementById('menu-title'),
+    menuSubtitle: document.getElementById('menu-subtitle')
+  };
+
+  /* ================= DATA & SAVES ================= */
+  
+  const defaultData = {
+    coins: 0,
+    highScore: 0,
+    inventory: ['skin_classic', 'bg_day'],
+    equippedSkin: 'skin_classic',
+    equippedBg: 'bg_day'
+  };
+
+  let userData = JSON.parse(localStorage.getItem('flappyShopData')) || defaultData;
+
+  function saveData() {
+    localStorage.setItem('flappyShopData', JSON.stringify(userData));
+    updateUI();
+  }
+
+  function updateUI() {
+    ui.coins.innerText = userData.coins;
+    ui.menuCoins.innerText = userData.coins;
+    ui.shopCoins.innerText = userData.coins;
+  }
+
+  /* ================= SHOP ITEMS ================= */
+
+  const SHOP_ITEMS = {
+    skins: [
+      { id: 'skin_classic', name: 'Classic', price: 0, color: '#fbbf24', beak: '#f97316' },
+      { id: 'skin_blue', name: 'Blue Jay', price: 50, color: '#3b82f6', beak: '#1e293b' },
+      { id: 'skin_red', name: 'Cardinal', price: 100, color: '#ef4444', beak: '#000000' },
+      { id: 'skin_alien', name: 'Alien', price: 250, color: '#10b981', beak: '#064e3b' },
+      { id: 'skin_robo', name: 'Robo-Bird', price: 500, color: '#94a3b8', beak: '#f43f5e' },
+      { id: 'skin_gold', name: 'Golden', price: 1000, color: '#ffd700', beak: '#ffffff' }
+    ],
+    bgs: [
+      { id: 'bg_day', name: 'Day', price: 0, top: '#63c5da', bot: '#c2e9fb' },
+      { id: 'bg_sunset', name: 'Sunset', price: 75, top: '#c026d3', bot: '#fcd34d' },
+      { id: 'bg_night', name: 'Midnight', price: 150, top: '#0f172a', bot: '#334155' },
+      { id: 'bg_retro', name: 'Retro', price: 300, top: '#2e1065', bot: '#ec4899' }
+    ]
+  };
+
+  let currentShopTab = 'skins';
+
+  /* ================= GAME CONFIG ================= */
+
+  const difficulties = {
+    Easy:   { gap: 170, speed: 2.0, spawnRate: 140, coinChance: 0.3 },
+    Normal: { gap: 140, speed: 3.0, spawnRate: 100, coinChance: 0.5 },
+    Hard:   { gap: 110, speed: 4.5, spawnRate: 80,  coinChance: 0.8 }
+  };
+
+  let config = {
+    difficulty: 'Normal'
+  };
+
+  let state = {
+    current: 'start', 
+    frames: 0,
+    score: 0,
+    gameCoins: 0 // Coins collected in current run
+  };
+
+  /* ================= ASSETS & DRAWING ================= */
+
+  const assets = {
+    getSkin: () => SHOP_ITEMS.skins.find(s => s.id === userData.equippedSkin) || SHOP_ITEMS.skins[0],
+    getBg: () => SHOP_ITEMS.bgs.find(b => b.id === userData.equippedBg) || SHOP_ITEMS.bgs[0],
+  };
+
+  // Bird
+  const bird = {
+    x: 50, y: 150, radius: 12, velocity: 0, gravity: 0.25, jump: -4.6, rotation: 0,
+    
+    draw: function() {
+      const skin = assets.getSkin();
+      
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      this.rotation = Math.min(Math.PI/4, Math.max(-Math.PI/4, (this.velocity * 0.1)));
+      ctx.rotate(this.rotation);
+
+      // Body
+      ctx.fillStyle = skin.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.radius, this.radius * 0.8, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#000';
+      ctx.stroke();
+
+      // Eye
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(6, -6, 6, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#000'; // Pupil
+      ctx.beginPath();
+      ctx.arc(8, -6, 2, 0, Math.PI*2);
+      ctx.fill();
+
+      // Wing
+      ctx.fillStyle = skin.color; // simplified wing color
+      ctx.beginPath();
+      const wingY = (state.current === 'playing' && state.frames % 10 < 5) ? 4 : 0;
+      ctx.ellipse(-6, wingY, 8, 5, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Beak
+      ctx.fillStyle = skin.beak;
+      ctx.beginPath();
+      ctx.moveTo(8, 2);
+      ctx.lineTo(16, 6);
+      ctx.lineTo(8, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.restore();
+    },
+
+    update: function() {
+      this.velocity += this.gravity;
+      this.y += this.velocity;
+
+      // Floor
+      if (this.y + this.radius >= canvas.height - fg.h) {
+        this.y = canvas.height - fg.h - this.radius;
+        gameOver();
+      }
+      // Ceiling
+      if (this.y - this.radius <= 0) {
+        this.y = this.radius;
+        this.velocity = 0;
+      }
+    },
+    flap: function() { this.velocity = this.jump; }
+  };
+
+  // Coins
+  const coins = {
+    items: [],
+    
+    reset: function() { this.items = []; },
+    
+    spawn: function(pipeX, pipeTop, pipeGap) {
+      if (Math.random() > difficulties[config.difficulty].coinChance) return;
+      this.items.push({
+        x: pipeX + 26,
+        y: pipeTop + (pipeGap / 2),
+        collected: false,
+        bobOffset: Math.random() * Math.PI * 2
+      });
+    },
+
+    update: function() {
+      const diff = difficulties[config.difficulty];
+      this.items.forEach(c => {
+        c.x -= diff.speed;
+        if (!c.collected) {
+          const dx = bird.x - c.x;
+          const dy = bird.y - c.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < bird.radius + 12) {
+            c.collected = true;
+            state.gameCoins++;
+            userData.coins++;
+            ui.coins.innerText = userData.coins;
+            playSound('coin');
+          }
+        }
+      });
+      this.items = this.items.filter(c => c.x > -50 && !c.collected);
+    },
+
+    draw: function() {
+      this.items.forEach(c => {
+        const bob = Math.sin(state.frames * 0.1 + c.bobOffset) * 5;
+        ctx.save();
+        ctx.translate(c.x, c.y + bob);
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#fcd34d';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#b45309';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('$', 0, 1);
+        ctx.restore();
+      });
+    }
+  };
+
+  // Pipes
+  const pipes = {
+    items: [],
+    w: 52,
+    
+    reset: function() { this.items = []; },
+    
+    draw: function() {
+      const bgStyle = assets.getBg();
+      const pipeColor = bgStyle.id === 'bg_night' || bgStyle.id === 'bg_retro' ? '#475569' : '#22c55e';
+      const pipeBorder = '#000';
+
+      this.items.forEach(p => {
+        const gap = difficulties[config.difficulty].gap;
+        ctx.fillStyle = pipeColor;
+        ctx.strokeStyle = pipeBorder;
+        ctx.lineWidth = 2;
+
+        ctx.fillRect(p.x, 0, this.w, p.top);
+        ctx.strokeRect(p.x, -2, this.w, p.top+2);
+        ctx.fillRect(p.x - 2, p.top - 20, this.w + 4, 20); 
+        ctx.strokeRect(p.x - 2, p.top - 20, this.w + 4, 20);
+
+        const botY = p.top + gap;
+        const botH = canvas.height - botY - fg.h;
+        ctx.fillRect(p.x, botY, this.w, botH);
+        ctx.strokeRect(p.x, botY, this.w, botH);
+        ctx.fillRect(p.x - 2, botY, this.w + 4, 20);
+        ctx.strokeRect(p.x - 2, botY, this.w + 4, 20);
+      });
+    },
+
+    update: function() {
+      const diff = difficulties[config.difficulty];
+      if (state.frames % diff.spawnRate === 0) {
+        const minTop = 50;
+        const maxTop = canvas.height - fg.h - diff.gap - 50;
+        const top = Math.random() * (maxTop - minTop) + minTop;
+        pipes.items.push({ x: canvas.width, top: top, passed: false });
+        coins.spawn(canvas.width, top, diff.gap);
+      }
+
+      for (let i = 0; i < this.items.length; i++) {
+        let p = this.items[i];
+        p.x -= diff.speed;
+
+        if (bird.x + bird.radius > p.x && bird.x - bird.radius < p.x + this.w) {
+          if (bird.y - bird.radius < p.top || bird.y + bird.radius > p.top + diff.gap) {
+            gameOver();
+          }
+        }
+
+        if (p.x + this.w < bird.x && !p.passed) {
+          state.score++;
+          p.passed = true;
+          ui.score.innerText = state.score;
+          playSound('score');
+        }
+
+        if (p.x + this.w < 0) {
+          this.items.shift();
+          i--;
+        }
+      }
+    }
+  };
+
+  const bg = {
+    draw: function() {
+      const style = assets.getBg();
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, style.top);
+      gradient.addColorStop(1, style.bot);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  const fg = {
+    h: 80, x: 0,
+    draw: function() {
+      const bgStyle = assets.getBg();
+      const color = bgStyle.id === 'bg_night' || bgStyle.id === 'bg_retro' ? '#334155' : '#ded895';
+      const grass = bgStyle.id === 'bg_night' || bgStyle.id === 'bg_retro' ? '#1e293b' : '#4ade80';
+
+      ctx.fillStyle = color;
+      ctx.fillRect(0, canvas.height - this.h, canvas.width, this.h);
+      ctx.fillStyle = grass;
+      ctx.fillRect(0, canvas.height - this.h, canvas.width, 12);
+      
+      ctx.beginPath();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.moveTo(0, canvas.height - this.h);
+      ctx.lineTo(canvas.width, canvas.height - this.h);
+      ctx.stroke();
+    },
+    update: function() {
+      if(state.current === 'playing') {
+        this.x = (this.x - difficulties[config.difficulty].speed) % 20;
+      }
+    }
+  };
+
+  /* ================= AUDIO ================= */
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  function playSound(type) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+
+    if (type === 'coin') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(1600, now + 0.1);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } else if (type === 'flap') {
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } else if (type === 'score') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } else if (type === 'hit') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+  }
+
+  /* ================= SHOP LOGIC ================= */
+  function renderShop() {
+    ui.shopGrid.innerHTML = '';
+    const items = currentShopTab === 'skins' ? SHOP_ITEMS.skins : SHOP_ITEMS.bgs;
+    const equippedId = currentShopTab === 'skins' ? userData.equippedSkin : userData.equippedBg;
+
+    items.forEach(item => {
+      const el = document.createElement('div');
+      const isOwned = userData.inventory.includes(item.id);
+      const isEquipped = item.id === equippedId;
+      
+      el.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+      
+      let previewHtml = '';
+      if(currentShopTab === 'skins') {
+        previewHtml = `<div class="item-preview" style="background:${item.color}; border-radius: 50%; border:2px solid #000;"></div>`;
+      } else {
+        previewHtml = `<div class="item-preview" style="background: linear-gradient(${item.top}, ${item.bot});"></div>`;
+      }
+
+      let actionText = '';
+      let actionClass = '';
+      if (isEquipped) {
+        actionText = 'EQUIPPED';
+        actionClass = 'equipped';
+      } else if (isOwned) {
+        actionText = 'EQUIP';
+        actionClass = 'equip';
+      } else {
+        actionText = `<div class="coin-icon" style="width:12px;height:12px;border-width:1px;"></div> ${item.price}`;
+      }
+
+      el.innerHTML = `
+        ${previewHtml}
+        <div class="item-info">
+          <h3>${item.name}</h3>
+          <div class="status-text ${actionClass}">
+             ${isOwned && !isEquipped ? 'TAP TO EQUIP' : ''}
+             ${isEquipped ? 'ACTIVE' : ''}
+          </div>
+          <div class="price-tag">${!isOwned ? actionText : ''}</div>
+        </div>
+      `;
+
+      el.onclick = () => handleItemClick(item);
+      ui.shopGrid.appendChild(el);
+    });
+  }
+
+  function handleItemClick(item) {
+    const isOwned = userData.inventory.includes(item.id);
+    const type = currentShopTab === 'skins' ? 'equippedSkin' : 'equippedBg';
+
+    if (isOwned) {
+      userData[type] = item.id;
+      saveData();
+      renderShop();
+    } else {
+      if (userData.coins >= item.price) {
+        userData.coins -= item.price;
+        userData.inventory.push(item.id);
+        userData[type] = item.id;
+        saveData();
+        renderShop();
+        playSound('score');
+      } else {
+        showToast("Need more coins!");
+        playSound('hit');
+      }
+    }
+  }
+
+  function showToast(msg) {
+    ui.toast.innerText = msg;
+    ui.toast.classList.add('show');
+    setTimeout(() => ui.toast.classList.remove('show'), 2000);
+  }
+
+  /* ================= GAMELOOP ================= */
+  function init() {
+    const r = document.getElementById('game-container');
+    canvas.width = r.clientWidth;
+    canvas.height = r.clientHeight;
+    updateUI();
+    loop();
+  }
+
+  function loop() {
+    if (state.current !== 'paused') {
+      update();
+      draw();
+      state.frames++;
+      requestAnimationFrame(loop);
+    }
+  }
+
+  function update() {
+    bg.draw();
+    fg.update();
+    if (state.current === 'playing') {
+      bird.update();
+      pipes.update();
+      coins.update();
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    bg.draw();
+    pipes.draw();
+    coins.draw();
+    fg.draw();
+    if (state.current !== 'start') bird.draw();
+  }
+
+  function resetGame() {
+    bird.y = canvas.height/2;
+    bird.velocity = 0;
+    bird.rotation = 0;
+    pipes.reset();
+    coins.reset();
+    state.score = 0;
+    state.gameCoins = 0;
+    state.frames = 0;
+    ui.score.innerText = '0';
+  }
+
+  function gameOver() {
+    state.current = 'gameover';
+    playSound('hit');
+    saveData();
+    ui.mainMenu.classList.remove('hidden');
+    
+    // Safety checks for text elements
+    if (ui.menuTitle) ui.menuTitle.innerText = "GAME OVER";
+    if (ui.menuSubtitle) ui.menuSubtitle.innerText = `Score: ${state.score} | Coins: +${state.gameCoins}`;
+    
+    document.getElementById('action-btn').innerText = "PLAY AGAIN";
+  }
+
+  /* ================= EVENTS ================= */
+  document.getElementById('action-btn').addEventListener('click', () => {
+    state.current = 'playing';
+    resetGame();
+    ui.mainMenu.classList.add('hidden');
+  });
+
+  document.getElementById('open-shop-btn').addEventListener('click', () => {
+    ui.shopMenu.classList.remove('hidden');
+    renderShop();
+  });
+  document.getElementById('close-shop-btn').addEventListener('click', () => {
+    ui.shopMenu.classList.add('hidden');
+  });
+  
+  document.getElementById('tab-skins').addEventListener('click', (e) => {
+    currentShopTab = 'skins';
+    document.getElementById('tab-bgs').classList.remove('active');
+    e.target.classList.add('active');
+    renderShop();
+  });
+  document.getElementById('tab-bgs').addEventListener('click', (e) => {
+    currentShopTab = 'bgs';
+    document.getElementById('tab-skins').classList.remove('active');
+    e.target.classList.add('active');
+    renderShop();
+  });
+
+  canvas.addEventListener('mousedown', () => { if(state.current === 'playing') bird.flap(); playSound('flap'); });
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if(state.current === 'playing') bird.flap(); playSound('flap'); }, {passive:false});
+  document.addEventListener('keydown', (e) => { if(e.code === 'Space' && state.current === 'playing') bird.flap(); playSound('flap'); });
+
+  window.setDifficulty = (d) => {
+    config.difficulty = d;
+    document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-'+d.toLowerCase()).classList.add('active');
+  };
+  
+  document.getElementById('pause-btn').addEventListener('click', () => {
+     if(state.current === 'playing') { state.current = 'paused'; ui.pauseMenu.classList.remove('hidden'); }
+  });
+  document.getElementById('resume-btn').addEventListener('click', () => {
+     state.current = 'playing'; ui.pauseMenu.classList.add('hidden'); loop();
+  });
+  document.getElementById('quit-btn').addEventListener('click', () => {
+    state.current = 'start'; 
+    ui.pauseMenu.classList.add('hidden'); 
+    ui.mainMenu.classList.remove('hidden'); 
+    saveData();
+    loop();
+  });
+
+  init();
+</script>
+</body>
+</html>
