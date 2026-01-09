@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Arcade Hub</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    /* --- GLOBAL & LAUNCHER STYLES --- */
+    :root {
+      --app-bg: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --accent-color: #3b82f6;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background: var(--app-bg);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow: hidden;
+      color: var(--text-main);
+      user-select: none; /* Prevent highlighting text while playing */
+    }
+
+    /* Screen Management */
+    .screen {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.3s;
+      z-index: 1;
+    }
+    
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      z-index: -1;
+      display: none !important;
+    }
+
+    /* Launcher UI */
+    #launcher {
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    }
+
+    .app-header { margin-bottom: 40px; text-align: center; }
+    .app-header h1 {
+      font-size: 3rem; margin: 0;
+      background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 20px;
+      width: 90%;
+      max-width: 700px;
+    }
+
+    .game-card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .game-card:hover { transform: translateY(-5px); background: rgba(255, 255, 255, 0.15); border-color: rgba(255,255,255,0.3); }
+
+    .game-icon {
+      font-size: 48px; margin-bottom: 15px; width: 80px; height: 80px;
+      border-radius: 18px; display: grid; place-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
+    .icon-flappy { background: linear-gradient(135deg, #f43f5e, #fbbf24); }
+    .icon-ttt { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+    .icon-chess { background: linear-gradient(135deg, #10b981, #064e3b); }
+
+    .game-title { font-weight: 700; font-size: 1.1rem; }
+    .game-tag { font-size:12px; color:rgba(255,255,255,0.6); margin-top:5px; }
+
+    /* Back Button */
+    .home-btn {
+      position: absolute; top: 15px; left: 15px; z-index: 1000;
+      background: rgba(0,0,0,0.6); color: white;
+      border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px;
+      border-radius: 20px; cursor: pointer; font-weight: 600;
+      backdrop-filter: blur(4px);
+    }
+    .home-btn:hover { background: rgba(0,0,0,0.8); }
+
+    /* --- FLAPPY BIRD CSS --- */
+    #game-flappy { 
+      background: #333; 
+      justify-content: center; 
+      align-items: center; 
+    }
+    
+    #flappy-container { 
+      position: relative; 
+      width: 100%; 
+      max-width: 400px; 
+      height: 100%; 
+      max-height: 700px; 
+      background: #70c5ce; /* Sky Blue */
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
+      overflow: hidden; 
+    }
+    
+    #game-canvas { 
+      display: block; 
+      width: 100%; 
+      height: 100%; 
+    }
+    
+    .ui-layer { 
+      position: absolute; 
+      top: 0; left: 0; 
+      width: 100%; height: 100%; 
+      pointer-events: none; 
+      display: flex; 
+      flex-direction: column; 
+      z-index: 10; 
+    }
+    
+    .menu-screen { 
+      position: absolute; 
+      top: 0; left: 0; right: 0; bottom: 0; 
+      background: rgba(0, 0, 0, 0.4); 
+      backdrop-filter: blur(2px); 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      pointer-events: auto; 
+      transition: opacity 0.2s; 
+      z-index: 20; 
+    }
+    
+    .menu-screen.hidden { 
+      opacity: 0; 
+      pointer-events: none !important; 
+    }
+
+    .card { 
+      background: white; 
+      width: 80%; 
+      padding: 24px; 
+      border-radius: 24px; 
+      text-align: center; 
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
+    }
+
+    .play-btn { 
+      width: 100%; 
+      padding: 16px; 
+      border: none; 
+      border-radius: 16px; 
+      background: #f43f5e; 
+      color: white; 
+      font-size: 20px; 
+      font-weight: 900; 
+      cursor: pointer; 
+      box-shadow: 0 4px 0 #9f1239; 
+      margin-top: 15px; 
+    }
+    .play-btn:active { transform: translateY(4px); box-shadow: none; }
+
+    .score-display {
+      position: absolute;
+      top: 50px;
+      width: 100%;
+      text-align: center;
+      font-size: 40px;
+      font-weight: 900;
+      color: white;
+      text-shadow: 2px 2px 0 #000;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    /* --- TIC TAC TOE CSS --- */
+    #game-ttt { background: #1e1b4b; align-items: center; justify-content: center; }
+    .ttt-container { background: white; padding: 30px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; width: 90%; max-width: 400px; }
+    .ttt-header h2 { margin: 0 0 10px 0; font-size: 28px; font-weight: 800; color: #1e293b; text-transform: uppercase; }
+    .ttt-status { color: #64748b; font-weight: 600; margin-bottom: 15px; min-height: 24px;}
+    .ttt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .ttt-cell { background: #f1f5f9; aspect-ratio: 1; border-radius: 12px; border: none; font-size: 40px; font-weight: 900; cursor: pointer; color: #334155; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .ttt-cell:hover:not(:disabled) { background: #e2e8f0; }
+    .ttt-cell.x { color: #f43f5e; }
+    .ttt-cell.o { color: #3b82f6; }
+    .ttt-cell.win { background: #dcfce7; }
+    .ttt-btn { background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 4px 0 #1d4ed8; }
+    .ttt-btn:active { transform: translateY(4px); box-shadow: none; }
+
+    /* --- CHESS CSS (FIXED) --- */
+    #game-chess { background: #064e3b; align-items: center; justify-content: center; }
+    .chess-container {
+      background: #1f2937;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 95%;
+      max-width: 500px;
+    }
+
+    .chess-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; color: #fff; }
+    .chess-status { font-weight: bold; color: #fbbf24; font-size: 14px; }
+    
+    /* Strict Grid for Board to prevent shrinking */
+    .chessboard {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: 100%;
+      aspect-ratio: 1 / 1; /* Forces exact square */
+      border: 4px solid #374151;
+      user-select: none;
+      background: #374151;
+    }
+
+    .square {
+      width: 100%; 
+      height: 100%;
+      display: flex; 
+      justify-content: center; 
+      align-items: center;
+      /* Responsive font size based on viewport width */
+      font-size: clamp(20px, 8vw, 45px);
+      cursor: pointer;
+      position: relative;
+    }
+    
+    .sq-white { background-color: #f3f4f6; color: #000; }
+    .sq-black { background-color: #6b7280; color: #000; }
+    .sq-white.highlight { background-color: #86efac; }
+    .sq-black.highlight { background-color: #22c55e; }
+    .sq-selected { background-color: #fcd34d !important; }
+    
+    .piece-w { color: #fff; text-shadow: 0 2px 2px rgba(0,0,0,0.5); z-index: 2;}
+    .piece-b { color: #000; text-shadow: 0 0 0 transparent; z-index: 2;}
+    /* Inverted piece colors for contrast */
+    .sq-white .piece-b { color: #111; }
+    .sq-black .piece-w { color: #fff; }
+
+    .chess-controls {
+      margin-top: 15px;
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+    }
+    
+    .pill-btn {
+      padding: 8px 12px; border-radius: 20px; border: 2px solid #4b5563; 
+      background: #374151; color: #d1d5db; font-weight: 600; 
+      cursor: pointer; font-size: 12px; transition: all 0.2s;
+    }
+    .pill-btn.active {
+      background: #10b981; border-color: #059669; color: #fff; transform: scale(1.05);
+    }
+
+    .capture-dot {
+      position: absolute;
+      width: 20%; height: 20%;
+      background: rgba(220, 38, 38, 0.6); /* Red */
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .move-dot {
+      position: absolute;
+      width: 20%; height: 20%;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="launcher" class="screen">
+    <div class="app-header">
+      <h1>Arcade Hub</h1>
+      <p style="color: #94a3b8; font-weight: 600;">Select a game to play</p>
+    </div>
+    
+    <div class="game-grid">
+      <div class="game-card" onclick="app.launch('flappy')">
+        <div class="game-icon icon-flappy">🐦</div>
+        <div class="game-title">Flappy Bird</div>
+      </div>
+
+      <div class="game-card" onclick="app.launch('ttt')">
+        <div class="game-icon icon-ttt">⭕</div>
+        <div class="game-title">Tic Tac Toe</div>
+      </div>
+
+      <div class="game-card" onclick="app.launch('chess')">
+        <div class="game-icon icon-chess">♞</div>
+        <div class="game-title">Chess</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="game-flappy" class="screen hidden">
+    <button class="home-btn" onclick="app.home()">⬅ Menu</button>
+    
+    <div id="flappy-container">
+      <div class="score-display" id="flappy-score">0</div>
+      <canvas id="game-canvas"></canvas>
+      
+      <div id="flappy-menu" class="menu-screen">
+        <div class="card">
+          <h1 style="color:#333; margin-top:0;">FLAPPY BIRD</h1>
+          <button class="play-btn" onclick="flappyGame.start()">TAP TO PLAY</button>
+        </div>
+      </div>
+
+      <div id="flappy-over" class="menu-screen hidden">
+        <div class="card">
+          <h1 style="color:#333; margin-top:0;">GAME OVER</h1>
+          <p id="final-score" style="font-size: 24px; font-weight: bold; color:#555;">Score: 0</p>
+          <button class="play-btn" onclick="flappyGame.reset()">TRY AGAIN</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="game-ttt" class="screen hidden">
+    <button class="home-btn" onclick="app.home()">⬅ Menu</button>
+    <div class="ttt-container">
+      <div class="ttt-header">
+        <h2>Tic Tac Toe</h2>
+        <div class="ttt-status" id="ttt-status">Your Turn (X)</div>
+      </div>
+      <div class="control-group" style="margin-bottom:15px; display:flex; justify-content:center; gap:5px;">
+        <button class="pill-btn" id="ttt-easy" onclick="tttGame.setDiff('Easy')">Easy</button>
+        <button class="pill-btn active" id="ttt-normal" onclick="tttGame.setDiff('Normal')">Normal</button>
+        <button class="pill-btn" id="ttt-hard" onclick="tttGame.setDiff('Hard')">Hard</button>
+      </div>
+      <div class="ttt-grid" id="ttt-grid"></div>
+      <button class="ttt-btn" onclick="tttGame.reset()">Restart Game</button>
+    </div>
+  </div>
+
+  <div id="game-chess" class="screen hidden">
+    <button class="home-btn" onclick="app.home()">⬅ Menu</button>
+    <div class="chess-container">
+      <div class="chess-header">
+        <h2 style="margin:0; text-transform:uppercase;">Chess</h2>
+        <div class="chess-status" id="chess-status">White to Move</div>
+      </div>
+      
+      <div class="chessboard" id="chessboard">
+        </div>
+
+      <div class="chess-controls">
+        <button class="pill-btn active" onclick="chessGame.setDiff('Beginner')" id="chess-beginner">Beginner</button>
+        <button class="pill-btn" onclick="chessGame.setDiff('Intermediate')" id="chess-intermediate">Inter.</button>
+        <button class="pill-btn" onclick="chessGame.setDiff('Hard')" id="chess-hard">Hard</button>
+        <button class="pill-btn" onclick="chessGame.setDiff('Pro')" id="chess-pro">Pro</button>
+        <button class="pill-btn" onclick="chessGame.setDiff('Impossible')" id="chess-impossible" style="border-color:#ef4444; color:#ef4444;">Impossible</button>
+      </div>
+      <button class="ttt-btn" style="margin-top:15px; width:100%; background:#10b981;" onclick="chessGame.reset()">New Game</button>
+    </div>
+  </div>
+
+<script>
+  /* =========================================
+     APP MANAGER
+     ========================================= */
+  const app = {
+    launch: function(gameId) {
+      document.getElementById('launcher').classList.add('hidden');
+      if(gameId === 'flappy') {
+        const el = document.getElementById('game-flappy');
+        el.classList.remove('hidden');
+        // Small timeout to ensure display:block is applied before canvas sizing
+        setTimeout(() => flappyGame.init(), 50); 
+      } else if (gameId === 'ttt') {
+        document.getElementById('game-ttt').classList.remove('hidden');
+        tttGame.init();
+      } else if (gameId === 'chess') {
+        document.getElementById('game-chess').classList.remove('hidden');
+        chessGame.init();
+      }
+    },
+    home: function() {
+      document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+      document.getElementById('launcher').classList.remove('hidden');
+      flappyGame.stop();
+    }
+  };
+
+  /* =========================================
+     CHESS ENGINE (Fixed & Optimized)
+     ========================================= */
+  const chessGame = {
+    game: null,
+    boardEl: null,
+    selectedSquare: null,
+    difficulty: 'Beginner',
+    isAiThinking: false,
+    
+    // Piece Square Tables (Simplified)
+    pst: {
+      p: [ [0,0,0,0,0,0,0,0],[5,5,5,5,5,5,5,5],[1,1,2,3,3,2,1,1],[0.5,0.5,1,2.5,2.5,1,0.5,0.5],[0,0,0,2,2,0,0,0],[0.5,-0.5,-1,0,0,-1,-0.5,0.5],[0.5,1,1,-2,-2,1,1,0.5],[0,0,0,0,0,0,0,0] ],
+      n: [ [-5,-4,-3,-3,-3,-3,-4,-5],[-4,-2,0,0,0,0,-2,-4],[-3,0,1,1.5,1.5,1,0,-3],[-3,0.5,1.5,2,2,1.5,0.5,-3],[-3,0,1.5,2,2,1.5,0,-3],[-3,0.5,1,1.5,1.5,1,0.5,-3],[-4,-2,0,0.5,0.5,0,-2,-4],[-5,-4,-3,-3,-3,-3,-4,-5] ],
+      // Others simplified to encourage center play
+      b: [ [-2,-1,-1,-1,-1,-1,-1,-2],[-1,0,0,0,0,0,0,-1],[-1,0,0.5,1,1,0.5,0,-1],[-1,0.5,0.5,1,1,0.5,0.5,-1],[-1,0,1,1,1,1,0,-1],[-1,1,1,1,1,1,1,-1],[-1,0.5,0,0,0,0,0.5,-1],[-2,-1,-1,-1,-1,-1,-1,-2] ]
+    },
+
+    init: function() {
+      if (typeof Chess === 'undefined') {
+        alert("Chess library failed to load. Please check your internet connection.");
+        return;
+      }
+      this.game = new Chess();
+      this.boardEl = document.getElementById('chessboard');
+      this.renderBoard();
+      this.updateStatus();
+    },
+
+    setDiff: function(d) {
+      this.difficulty = d;
+      document.querySelectorAll('#game-chess .pill-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('chess-'+d.toLowerCase()).classList.add('active');
+    },
+
+    reset: function() {
+      if(this.game) {
+        this.game.reset();
+        this.selectedSquare = null;
+        this.renderBoard();
+        this.updateStatus();
+      }
+    },
+
+    renderBoard: function() {
+      this.boardEl.innerHTML = '';
+      const board = this.game.board(); 
+      
+      for(let i=0; i<8; i++) {
+        for(let j=0; j<8; j++) {
+          const square = board[i][j];
+          const squareName = String.fromCharCode(97+j) + (8-i);
+          
+          const div = document.createElement('div');
+          const isWhiteSq = (i+j)%2 === 0;
+          div.className = `square ${isWhiteSq ? 'sq-white' : 'sq-black'}`;
+          div.id = `sq-${squareName}`;
+          div.onclick = () => this.handleSquareClick(squareName);
+          
+          if(this.selectedSquare === squareName) div.classList.add('sq-selected');
+          
+          if(square) {
+            const symbols = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
+            const span = document.createElement('span');
+            span.className = `piece-${square.color}`;
+            span.innerHTML = symbols[square.type];
+            div.appendChild(span);
+          }
+          this.boardEl.appendChild(div);
+        }
+      }
+
+      // Highlight Move History
+      const history = this.game.history({verbose:true});
+      if(history.length > 0) {
+        const last = history[history.length-1];
+        const fromEl = document.getElementById(`sq-${last.from}`);
+        const toEl = document.getElementById(`sq-${last.to}`);
+        if(fromEl) fromEl.classList.add('highlight');
+        if(toEl) toEl.classList.add('highlight');
+      }
+    },
+
+    handleSquareClick: function(square) {
+      if(this.isAiThinking || this.game.game_over()) return;
+
+      // Deselect
+      if(this.selectedSquare === square) {
+        this.selectedSquare = null;
+        this.renderBoard();
+        return;
+      }
+
+      // Move Logic
+      if(this.selectedSquare) {
+        const move = this.game.move({
+          from: this.selectedSquare,
+          to: square,
+          promotion: 'q'
+        });
+
+        if(move) {
+          this.selectedSquare = null;
+          this.renderBoard();
+          this.updateStatus();
+          this.isAiThinking = true;
+          // Small delay so UI updates before JS hangs for calculation
+          setTimeout(() => this.makeAiMove(), 50);
+          return;
+        }
+      }
+
+      // Select Logic
+      const piece = this.game.get(square);
+      if(piece && piece.color === 'w') {
+        this.selectedSquare = square;
+        this.renderBoard();
+        const moves = this.game.moves({ square: square, verbose: true });
+        moves.forEach(m => {
+           const el = document.getElementById(`sq-${m.to}`);
+           const dot = document.createElement('div');
+           dot.className = this.game.get(m.to) ? 'capture-dot' : 'move-dot';
+           el.appendChild(dot);
+        });
+      }
+    },
+
+    updateStatus: function() {
+      const statusEl = document.getElementById('chess-status');
+      if (this.game.in_checkmate()) statusEl.innerText = this.game.turn() === 'w' ? "You Lost!" : "You Won!";
+      else if (this.game.in_draw()) statusEl.innerText = "Draw!";
+      else statusEl.innerText = this.game.turn() === 'w' ? "Your Turn" : "Bot Thinking...";
+    },
+
+    /* --- BOT LOGIC --- */
+    makeAiMove: function() {
+      if(this.game.game_over()) return;
+
+      let move;
+      // Difficulty Depths
+      const depthMap = { 'Beginner': 0, 'Intermediate': 2, 'Hard': 3, 'Pro': 3, 'Impossible': 3 };
+      const depth = depthMap[this.difficulty];
+
+      if (this.difficulty === 'Beginner') {
+        const moves = this.game.moves();
+        move = moves[Math.floor(Math.random() * moves.length)];
+      } else {
+        move = this.getBestMove(depth);
+      }
+
+      this.game.move(move);
+      this.isAiThinking = false;
+      this.renderBoard();
+      this.updateStatus();
+    },
+
+    getBestMove: function(depth) {
+      // 1. Generate Moves
+      let moves = this.game.moves({ verbose: true });
+      
+      // 2. Move Ordering (Heuristic: Captures first, checks first)
+      // This makes Alpha-Beta pruning significantly more efficient
+      moves.sort((a, b) => {
+          let scoreA = 0, scoreB = 0;
+          if (a.captured) scoreA += 10;
+          if (b.captured) scoreB += 10;
+          if (a.promotion) scoreA += 5;
+          if (b.promotion) scoreB += 5;
+          return scoreB - scoreA;
+      });
+
+      let bestMove = null;
+      let bestValue = -Infinity;
+      
+      // 3. Search
+      for(let i = 0; i < moves.length; i++) {
+        const move = moves[i];
+        this.game.move(move);
+        // We are minimizing for opponent
+        const value = this.minimax(depth - 1, -Infinity, Infinity, false);
+        this.game.undo();
+        
+        if(value > bestValue) {
+          bestValue = value;
+          bestMove = move;
+        }
+      }
+      // Fallback
+      return bestMove || moves[0];
+    },
+
+    minimax: function(depth, alpha, beta, isMaximizing) {
+      if (depth === 0) return -this.evaluateBoard();
+
+      const moves = this.game.moves();
+      if (moves.length === 0) {
+        if (this.game.in_checkmate()) return isMaximizing ? -10000 : 10000;
+        return 0; // Draw
+      }
+
+      if (isMaximizing) {
+        let maxEval = -Infinity;
+        for (let i = 0; i < moves.length; i++) {
+          this.game.move(moves[i]);
+          const ev = this.minimax(depth - 1, alpha, beta, false);
+          this.game.undo();
+          maxEval = Math.max(maxEval, ev);
+          alpha = Math.max(alpha, ev);
+          if (beta <= alpha) break; // Prune
+        }
+        return maxEval;
+      } else {
+        let minEval = Infinity;
+        for (let i = 0; i < moves.length; i++) {
+          this.game.move(moves[i]);
+          const ev = this.minimax(depth - 1, alpha, beta, true);
+          this.game.undo();
+          minEval = Math.min(minEval, ev);
+          beta = Math.min(beta, ev);
+          if (beta <= alpha) break; // Prune
+        }
+        return minEval;
+      }
+    },
+
+    evaluateBoard: function() {
+      let totalEvaluation = 0;
+      const board = this.game.board();
+      const weights = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
+      
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const piece = board[i][j];
+          if (piece) {
+             let val = weights[piece.type];
+             // Positional bonus only for Hard/Pro/Imp
+             if (this.difficulty !== 'Intermediate' && this.pst[piece.type]) {
+                const r = piece.color === 'w' ? i : 7-i;
+                const c = piece.color === 'w' ? j : 7-j;
+                // Safe access
+                if(this.pst[piece.type][r]) val += this.pst[piece.type][r][c];
+             }
+             totalEvaluation += (piece.color === 'w' ? val : -val);
+          }
+        }
+      }
+      return totalEvaluation; // Positive is good for White
+    }
+  };
+
+  /* =========================================
+     TIC TAC TOE ENGINE
+     ========================================= */
+  const tttGame = {
+    board: Array(9).fill(null), human: 'X', bot: 'O', difficulty: 'Normal', active: false,
+    init: function() { this.renderGrid(); this.reset(); },
+    setDiff: function(d) { this.difficulty = d; document.querySelectorAll('#game-ttt .pill-btn').forEach(b => b.classList.remove('active')); document.getElementById('ttt-'+d.toLowerCase()).classList.add('active'); this.reset(); },
+    reset: function() { this.board.fill(null); this.active = true; document.getElementById('ttt-status').innerText = "Your Turn (X)"; this.renderCells(); },
+    renderGrid: function() { 
+      const g = document.getElementById('ttt-grid'); g.innerHTML=''; 
+      for(let i=0;i<9;i++){ const b=document.createElement('button'); b.className='ttt-cell'; b.onclick=()=>this.click(i); b.id=`c${i}`; g.appendChild(b); } 
+    },
+    renderCells: function() { this.board.forEach((v,i)=>{ const b=document.getElementById(`c${i}`); b.innerText=v||''; b.className='ttt-cell '+(v?v.toLowerCase():''); }); },
+    click: function(i) { if(!this.active||this.board[i])return; this.move(i,this.human); if(this.active) setTimeout(()=>this.botMove(),300); },
+    move: function(i,p) { 
+      this.board[i]=p; this.renderCells(); 
+      const w=this.checkWin(this.board,p); 
+      if(w){ this.active=false; w.forEach(x=>document.getElementById(`c${x}`).classList.add('win')); document.getElementById('ttt-status').innerText=p===this.human?"You Won!":"Bot Won!"; return; }
+      if(!this.board.includes(null)){ this.active=false; document.getElementById('ttt-status').innerText="Draw!"; }
+    },
+    botMove: function() {
+      if(!this.active)return;
+      let m; 
+      if(this.difficulty==='Easy') m=this.randM();
+      else if(this.difficulty==='Hard') m=this.bestM();
+      else m=Math.random()>0.7?this.randM():this.bestM();
+      this.move(m,this.bot);
+    },
+    randM: function() { const a=this.board.map((v,i)=>v===null?i:null).filter(v=>v!==null); return a[Math.floor(Math.random()*a.length)]; },
+    bestM: function() {
+      let best=-Infinity, m;
+      for(let i=0;i<9;i++){ if(!this.board[i]){ this.board[i]=this.bot; let s=this.mm(this.board,0,false); this.board[i]=null; if(s>best){best=s;m=i;} } }
+      return m;
+    },
+    mm: function(b,d,isMax) {
+      if(this.checkWin(b,this.bot)) return 10-d; if(this.checkWin(b,this.human)) return d-10; if(!b.includes(null)) return 0;
+      if(isMax) { let best=-Infinity; for(let i=0;i<9;i++){ if(!b[i]){ b[i]=this.bot; best=Math.max(best,this.mm(b,d+1,false)); b[i]=null; } } return best; }
+      else { let best=Infinity; for(let i=0;i<9;i++){ if(!b[i]){ b[i]=this.human; best=Math.min(best,this.mm(b,d+1,true)); b[i]=null; } } return best; }
+    },
+    checkWin: function(b,p) { const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; for(let c of w) if(b[c[0]]===p&&b[c[1]]===p&&b[c[2]]===p) return c; return null; }
+  };
+
+  /* =========================================
+     FLAPPY BIRD ENGINE (Fixed)
+     ========================================= */
+  const flappyGame = {
+    canvas: null,
+    ctx: null,
+    animationId: null,
+    state: 'MENU', // MENU, PLAY, OVER
+    width: 0,
+    height: 0,
+    
+    // Physics
+    gravity: 0.25,
+    bird: { y: 0, velocity: 0, radius: 12 },
+    pipes: [],
+    frame: 0,
+    score: 0,
+    
+    init: function() {
+      this.canvas = document.getElementById('game-canvas');
+      this.ctx = this.canvas.getContext('2d');
+      const container = document.getElementById('flappy-container');
+      
+      // Fix: Explicitly set canvas size to match container
+      this.width = container.clientWidth;
+      this.height = container.clientHeight;
+      this.canvas.width = this.width;
+      this.canvas.height = this.height;
+
+      // Input
+      // Use container for input to capture click anywhere
+      container.onclick = (e) => {
+        // Prevent click if clicking a button in the menu
+        if (e.target.tagName === 'BUTTON') return;
+        this.flap();
+      };
+      
+      this.reset();
+      this.draw(); // Draw initial frame
+    },
+
+    start: function() {
+      document.getElementById('flappy-menu').classList.add('hidden');
+      this.state = 'PLAY';
+      this.reset();
+      this.loop();
+    },
+
+    reset: function() {
+      this.bird.y = this.height / 2;
+      this.bird.velocity = 0;
+      this.pipes = [];
+      this.score = 0;
+      this.frame = 0;
+      document.getElementById('flappy-score').innerText = '0';
+      document.getElementById('flappy-over').classList.add('hidden');
+    },
+
+    stop: function() {
+      cancelAnimationFrame(this.animationId);
+      this.state = 'MENU';
+      document.getElementById('flappy-menu').classList.remove('hidden');
+    },
+
+    flap: function() {
+      if (this.state === 'PLAY') {
+        this.bird.velocity = -5;
+      }
+    },
+
+    loop: function() {
+      if (this.state !== 'PLAY') return;
+
+      this.update();
+      this.draw();
+      this.animationId = requestAnimationFrame(() => this.loop());
+    },
+
+    update: function() {
+      // Bird Physics
+      this.bird.velocity += this.gravity;
+      this.bird.y += this.bird.velocity;
+
+      // Pipe Spawning
+      if (this.frame % 120 === 0) {
+        const gap = 150;
+        const minPipe = 50;
+        const maxPipe = this.height - gap - minPipe;
+        const topHeight = Math.floor(Math.random() * (maxPipe - minPipe + 1)) + minPipe;
+        
+        this.pipes.push({
+          x: this.width,
+          top: topHeight,
+          gap: gap,
+          passed: false
+        });
+      }
+
+      // Pipe Movement & Collision
+      for (let i = 0; i < this.pipes.length; i++) {
+        let p = this.pipes[i];
+        p.x -= 2;
+
+        // Collision Logic
+        // Horizontal check
+        if (50 + this.bird.radius > p.x && 50 - this.bird.radius < p.x + 50) {
+          // Vertical check (hit top pipe OR hit bottom pipe)
+          if (this.bird.y - this.bird.radius < p.top || 
+              this.bird.y + this.bird.radius > p.top + p.gap) {
+            this.gameOver();
+          }
+        }
+
+        // Score
+        if (p.x + 50 < 50 && !p.passed) {
+          this.score++;
+          document.getElementById('flappy-score').innerText = this.score;
+          p.passed = true;
+        }
+      }
+
+      // Remove off-screen pipes
+      if (this.pipes.length > 0 && this.pipes[0].x < -50) {
+        this.pipes.shift();
+      }
+
+      // Floor/Ceiling Collision
+      if (this.bird.y + this.bird.radius >= this.height || this.bird.y - this.bird.radius <= 0) {
+        this.gameOver();
+      }
+
+      this.frame++;
+    },
+
+    draw: function() {
+      // Clear
+      this.ctx.clearRect(0, 0, this.width, this.height);
+
+      // Bird
+      this.ctx.beginPath();
+      this.ctx.arc(50, this.bird.y, this.bird.radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = '#facc15'; // Yellow bird
+      this.ctx.fill();
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = '#000';
+      this.ctx.stroke();
+
+      // Pipes
+      this.ctx.fillStyle = '#22c55e'; // Green pipe
+      this.pipes.forEach(p => {
+        // Top Pipe
+        this.ctx.fillRect(p.x, 0, 50, p.top);
+        this.ctx.strokeRect(p.x, 0, 50, p.top);
+        
+        // Bottom Pipe
+        this.ctx.fillRect(p.x, p.top + p.gap, 50, this.height - (p.top + p.gap));
+        this.ctx.strokeRect(p.x, p.top + p.gap, 50, this.height - (p.top + p.gap));
+      });
+    },
+
+    gameOver: function() {
+      this.state = 'OVER';
+      cancelAnimationFrame(this.animationId);
+      document.getElementById('final-score').innerText = "Score: " + this.score;
+      document.getElementById('flappy-over').classList.remove('hidden');
+    }
+  };
+</script>
+</body>
+</html>
