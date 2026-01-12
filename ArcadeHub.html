@@ -153,7 +153,6 @@
         background: rgba(0, 0, 0, 0.8);
       }
 
-      /* --- Multiplayer Lobby Styles --- */
       .lobby-overlay {
         position: absolute;
         top: 0;
@@ -252,7 +251,6 @@
         margin-bottom: 5px;
       }
 
-      /* --- Flappy Styles --- */
       #game-flappy {
         --primary: #f43f5e;
         --accent: #22c55e;
@@ -949,7 +947,6 @@
         background: #374151;
       }
 
-      /* --- NEW FPS Styles --- */
       #game-fps {
         background: #000;
         overflow: hidden;
@@ -1133,7 +1130,7 @@
         </div>
         <div class="game-card" onclick="app.launch('fps')">
           <div class="game-icon icon-fps">🔫</div>
-          <div class="game-title">Krunker Lite</div>
+          <div class="game-title">Bloody Gunner Lite</div>
           <span class="game-tag">FPS / Multiplayer</span>
         </div>
       </div>
@@ -1309,7 +1306,7 @@
       <button class="home-btn" style="z-index: 100;" onclick="app.home()">⬅ Menu</button>
       <div id="fps-menu" class="menu-screen">
         <div class="card" style="max-width: 500px;">
-          <h1 class="flappy-h1">Krunker Lite</h1>
+          <h1 class="flappy-h1">Bloody Gunner Lite</h1>
           <p class="flappy-p">WASD Move | SPACE Jump | SHIFT Slide | R Reload</p>
           <h3 style="margin:10px 0; color:#64748b;">Select Map</h3>
           <div class="map-select">
@@ -1374,15 +1371,15 @@
           document.getElementById('launcher').classList.remove('hidden');
           if (this.current === 'flappy') flappyGame.pauseSystem();
           if (this.current === 'fps') fpsGame.stop();
-          Multiplayer.close(true); // Disconnect if going home
+          Multiplayer.close(true);
           this.current = 'launcher';
         }
       };
-      /* --- Multiplayer System --- */
+
       const Multiplayer = {
         peer: null,
         conn: null,
-        gameType: null, // 'ttt' or 'chess' or 'fps'
+        gameType: null,
         myId: null,
         isHost: false,
         open: function(type) {
@@ -1468,13 +1465,13 @@
         difficulty: 'Normal',
         active: false,
         isOnline: false,
-        mySide: null, // For online
+        mySide: null,
         init: function() {
           this.renderGrid();
           this.reset();
         },
         setDiff: function(d) {
-          if (this.isOnline) return; // Locked in online
+          if (this.isOnline) return; 
           this.difficulty = d;
           document.querySelectorAll('#game-ttt .pill-btn').forEach(b => b.classList.remove('active'));
           document.getElementById('ttt-' + d.toLowerCase()).classList.add('active');
@@ -1490,7 +1487,7 @@
           this.updateStatus(side === 'X' ? "Online: Your Turn (X)" : "Online: Opponent's Turn (X)");
         },
         reset: function() {
-          this.isOnline = false; // Reset to local
+          this.isOnline = false; 
           this.board = Array(9).fill(null);
           const rand = Math.random();
           this.human = rand < 0.5 ? 'X' : 'O';
@@ -1530,7 +1527,7 @@
         handleCellClick: function(index) {
           if (!this.active || this.board[index]) return;
           if (this.isOnline) {
-            if (this.currentPlayer !== this.mySide) return; // Not your turn
+            if (this.currentPlayer !== this.mySide) return; 
             this.makeMove(index, this.mySide);
             Multiplayer.send({
               index: index,
@@ -1807,11 +1804,11 @@
           }
         },
         undo: function() {
-          if (this.isOnline) return; // No undo in PVP
+          if (this.isOnline) return;
           if (this.game && this.game.history().length >= 2) {
             if (this.isAiThinking) return;
-            this.game.undo(); // Undo bot
-            this.game.undo(); // Undo human
+            this.game.undo();
+            this.game.undo();
             this.selectedSquare = null;
             this.renderBoard();
             this.updateStatus();
@@ -2679,7 +2676,6 @@
           pauseSystem
         };
       })();
-      /* --- NEW FPS GAME ENGINE (Krunker Lite) --- */
       const fpsGame = {
         scene: null,
         camera: null,
@@ -2705,7 +2701,7 @@
         lastTime: 0,
         raycaster: null,
         bullets: [],
-        remotePlayer: null, // Simple 1v1 for now
+        remotePlayer: null, 
         selectedMap: 'arena',
         maps: {
           'arena': {
@@ -2799,14 +2795,12 @@
           this.scene.background = new THREE.Color(0x87CEEB);
           this.scene.fog = new THREE.Fog(0x87CEEB, 0, 40);
           this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-          // Camera Rig
           this.pitchObject = new THREE.Object3D();
           this.pitchObject.add(this.camera);
           this.yawObject = new THREE.Object3D();
           this.yawObject.position.y = 1.6;
           this.yawObject.add(this.pitchObject);
           this.scene.add(this.yawObject);
-          // Add Gun Model
           this.createGunModel();
           this.renderer = new THREE.WebGLRenderer({
             antialias: true
@@ -2814,16 +2808,13 @@
           this.renderer.setSize(container.clientWidth, container.clientHeight);
           this.renderer.shadowMap.enabled = true;
           container.appendChild(this.renderer.domElement);
-          // Lighting
           const ambient = new THREE.AmbientLight(0xffffff, 0.6);
           this.scene.add(ambient);
           const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
           dirLight.position.set(50, 100, 50);
           dirLight.castShadow = true;
           this.scene.add(dirLight);
-          // Raycaster
           this.raycaster = new THREE.Raycaster();
-          // Controls
           document.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
             if (e.code === 'KeyR') this.reload();
@@ -2832,7 +2823,6 @@
           document.addEventListener('mousedown', () => {
             if (this.isActive) this.shoot();
           });
-          // Mouse Look
           container.addEventListener('click', () => {
             if (!this.isActive) return;
             container.requestPointerLock();
@@ -2844,12 +2834,10 @@
               this.pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitchObject.rotation.x));
             }
           });
-          // Player Model
           this.createPlayerModel();
         },
         createGunModel: function() {
           this.gunGroup = new THREE.Group();
-          // Main Body
           const bodyGeo = new THREE.BoxGeometry(0.15, 0.2, 0.6);
           const bodyMat = new THREE.MeshStandardMaterial({
             color: 0x333333
@@ -2857,7 +2845,6 @@
           const body = new THREE.Mesh(bodyGeo, bodyMat);
           body.position.z = 0.1;
           this.gunGroup.add(body);
-          // Barrel
           const barrelGeo = new THREE.BoxGeometry(0.08, 0.08, 0.6);
           const barrelMat = new THREE.MeshStandardMaterial({
             color: 0x111111
@@ -2866,16 +2853,14 @@
           barrel.position.z = -0.4;
           barrel.position.y = 0.05;
           this.gunGroup.add(barrel);
-          // Handle
           const handleGeo = new THREE.BoxGeometry(0.1, 0.25, 0.15);
           const handleMat = new THREE.MeshStandardMaterial({
             color: 0x5c4033
-          }); // Wood-ish
+          });
           const handle = new THREE.Mesh(handleGeo, handleMat);
           handle.position.y = -0.2;
           handle.rotation.x = 0.2;
           this.gunGroup.add(handle);
-          // Sight
           const sightGeo = new THREE.BoxGeometry(0.02, 0.05, 0.02);
           const sight = new THREE.Mesh(sightGeo, new THREE.MeshStandardMaterial({
             color: 0xff0000
@@ -2887,34 +2872,30 @@
         },
         createPlayerModel: function() {
           this.remotePlayer = new THREE.Group();
-          // Head
           const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
           const headMat = new THREE.MeshLambertMaterial({
             color: 0xffccaa
-          }); // Skin tone
+          });
           const head = new THREE.Mesh(headGeo, headMat);
           head.position.y = 1.6;
           this.remotePlayer.add(head);
-          // Body
           const bodyGeo = new THREE.BoxGeometry(0.5, 0.6, 0.3);
           const bodyMat = new THREE.MeshLambertMaterial({
             color: 0x3b82f6
-          }); // Blue shirt
+          });
           const body = new THREE.Mesh(bodyGeo, bodyMat);
           body.position.y = 1.1;
           this.remotePlayer.add(body);
-          // Legs
           const legGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2);
           const legMat = new THREE.MeshLambertMaterial({
             color: 0x1e293b
-          }); // Pants
+          });
           const legL = new THREE.Mesh(legGeo, legMat);
           legL.position.set(-0.15, 0.4, 0);
           this.remotePlayer.add(legL);
           const legR = new THREE.Mesh(legGeo, legMat);
           legR.position.set(0.15, 0.4, 0);
           this.remotePlayer.add(legR);
-          // Arms
           const armGeo = new THREE.BoxGeometry(0.15, 0.6, 0.15);
           const armMat = new THREE.MeshLambertMaterial({
             color: 0xffccaa
@@ -2939,7 +2920,6 @@
           const data = this.maps[this.selectedMap];
           const size = 3;
           const layout = data.layout;
-          // Floor
           const floorGeo = new THREE.PlaneGeometry(200, 200);
           const floorMat = new THREE.MeshLambertMaterial({
             color: 0x334155
@@ -3005,7 +2985,7 @@
           document.getElementById('fps-reload-msg').classList.add('show');
           // Gun Animation
           const startRot = this.gunGroup.rotation.x;
-          this.gunGroup.rotation.x = 1.0; // Rotate gun down
+          this.gunGroup.rotation.x = 1.0;
           setTimeout(() => {
             this.player.ammo = 30;
             this.isReloading = false;
@@ -3022,13 +3002,10 @@
           }
           this.player.ammo--;
           this.updateHUD();
-          // Recoil
           this.pitchObject.rotation.x += 0.05;
-          this.gunGroup.position.z += 0.2; // Kickback
-          // Raycast Logic
+          this.gunGroup.position.z += 0.2;
           this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
           if (this.isOnline) {
-            // Check intersect with children meshes of player group
             const intersects = this.raycaster.intersectObjects(this.remotePlayer.children);
             if (intersects.length > 0) {
               this.showMsg("HIT!");
@@ -3054,7 +3031,6 @@
         },
         die: function() {
           this.showMsg("YOU DIED");
-          // Respawn logic
           this.yawObject.position.set(Math.random() * 10 - 5, 10, Math.random() * 10 - 5);
           this.player.hp = 100;
           this.player.ammo = 30;
@@ -3098,14 +3074,11 @@
         loop: function() {
           this.loopId = requestAnimationFrame(() => this.loop());
           if (!this.isActive) return;
-          // Recoil Recovery
           if (this.gunGroup) {
             this.gunGroup.position.z = THREE.MathUtils.lerp(this.gunGroup.position.z, -0.5, 0.1);
           }
-          // Movement & Slide Logic
           const isSliding = this.keys['ShiftLeft'];
           const moveSpeed = isSliding ? this.player.speed * 1.6 : this.player.speed; // Speed boost
-          // Crouch Camera Lerp
           const targetHeight = isSliding ? 0.9 : 1.6;
           this.yawObject.children[0].position.y = THREE.MathUtils.lerp(this.yawObject.children[0].position.y, targetHeight - 1.6, 0.2);
           const dir = new THREE.Vector3();
