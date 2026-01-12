@@ -1,0 +1,3194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Arcade Hub</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+      :root {
+        --app-bg: #0f172a;
+        --card-bg: #1e293b;
+        --text-main: #f8fafc;
+        --accent-color: #3b82f6;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100vw;
+        height: 100vh;
+        background: var(--app-bg);
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        overflow: hidden;
+        color: var(--text-main);
+        user-select: none;
+      }
+
+      .screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        transition: opacity 0.3s;
+        z-index: 1;
+      }
+
+      .screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+        z-index: -1;
+        display: none !important;
+      }
+
+      #launcher {
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      }
+
+      .app-header {
+        margin-bottom: 40px;
+        text-align: center;
+      }
+
+      .app-header h1 {
+        font-size: 3rem;
+        margin: 0;
+        background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .game-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 20px;
+        width: 90%;
+        max-width: 800px;
+      }
+
+      .game-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        transition: transform 0.2s, background 0.2s;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .game-card:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+
+      .game-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+        width: 80px;
+        height: 80px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      }
+
+      .icon-flappy {
+        background: linear-gradient(135deg, #f43f5e, #fbbf24);
+      }
+
+      .icon-ttt {
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      }
+
+      .icon-chess {
+        background: linear-gradient(135deg, #10b981, #064e3b);
+      }
+
+      .icon-fps {
+        background: linear-gradient(135deg, #f97316, #dc2626);
+      }
+
+      .game-title {
+        font-weight: 700;
+        font-size: 1.1rem;
+        text-align: center;
+      }
+
+      .game-tag {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.6);
+        margin-top: 5px;
+      }
+
+      .home-btn {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        z-index: 9999;
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: 600;
+        backdrop-filter: blur(4px);
+      }
+
+      .home-btn:hover {
+        background: rgba(0, 0, 0, 0.8);
+      }
+
+      /* --- Multiplayer Lobby Styles --- */
+      .lobby-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        backdrop-filter: blur(5px);
+      }
+
+      .lobby-overlay.hidden {
+        display: none;
+      }
+
+      .lobby-card {
+        background: #1e293b;
+        padding: 30px;
+        border-radius: 20px;
+        border: 1px solid #334155;
+        width: 90%;
+        max-width: 350px;
+        text-align: center;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      }
+
+      .lobby-h2 {
+        margin: 0 0 20px 0;
+        color: white;
+        font-size: 24px;
+      }
+
+      .lobby-input {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        border: 2px solid #475569;
+        background: #0f172a;
+        color: white;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+        text-align: center;
+        font-family: monospace;
+        font-size: 16px;
+      }
+
+      .lobby-btn {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-bottom: 10px;
+        font-size: 16px;
+        transition: transform 0.1s;
+      }
+
+      .lobby-btn:active {
+        transform: scale(0.98);
+      }
+
+      .btn-create {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .btn-join {
+        background: #10b981;
+        color: white;
+      }
+
+      .btn-cancel {
+        background: #334155;
+        color: #94a3b8;
+      }
+
+      .lobby-code-display {
+        background: #0f172a;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 15px 0;
+        border: 2px dashed #475569;
+      }
+
+      .code-text {
+        font-family: monospace;
+        font-size: 20px;
+        color: #fbbf24;
+        font-weight: bold;
+        letter-spacing: 2px;
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      /* --- Flappy Styles --- */
+      #game-flappy {
+        --primary: #f43f5e;
+        --accent: #22c55e;
+        --dark: #1e293b;
+        --light: #f8fafc;
+        --coin: #fbbf24;
+        background: #000;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #flappy-container {
+        position: relative;
+        width: 100%;
+        max-width: 400px;
+        height: 100%;
+        max-height: 650px;
+        background: #000;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      #flappy-container canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+
+      .ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        z-index: 10;
+      }
+
+      .hud {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 16px;
+        pointer-events: auto;
+      }
+
+      .score-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .score-box {
+        background: rgba(255, 255, 255, 0.9);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--dark);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .coin-display {
+        background: rgba(255, 240, 200, 0.95);
+        padding: 6px 12px;
+        border-radius: 15px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #b45309;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid #fcd34d;
+      }
+
+      .coin-icon {
+        width: 16px;
+        height: 16px;
+        background: #fbbf24;
+        border-radius: 50%;
+        border: 2px solid #b45309;
+        box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.1s;
+      }
+
+      .menu-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        transition: opacity 0.2s;
+        z-index: 20;
+      }
+
+      .menu-screen.hidden {
+        opacity: 0;
+        pointer-events: none !important;
+      }
+
+      .card {
+        background: white;
+        width: 85%;
+        padding: 24px;
+        border-radius: 24px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        position: relative;
+        color: #1e293b;
+      }
+
+      .card.shop-card {
+        width: 90%;
+        height: 80%;
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+      }
+
+      .flappy-h1 {
+        margin: 0 0 10px 0;
+        color: var(--dark);
+        font-size: 28px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .flappy-p {
+        margin: 0 0 15px 0;
+        color: #64748b;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .play-btn {
+        width: 100%;
+        padding: 16px;
+        border: none;
+        border-radius: 16px;
+        background: var(--accent);
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px 0 #15803d;
+        margin-top: 10px;
+      }
+
+      .shop-btn-main {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 16px;
+        background: #3b82f6;
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px 0 #1d4ed8;
+        margin-top: 10px;
+      }
+
+      .control-group {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+
+      .pill-btn {
+        padding: 8px 12px;
+        border-radius: 20px;
+        border: 2px solid #e2e8f0;
+        background: white;
+        color: #64748b;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .pill-btn.active {
+        border-color: var(--accent);
+        background: #dcfce7;
+        color: #166534;
+      }
+
+      .shop-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      .tab-btn {
+        flex: 1;
+        padding: 10px;
+        border-radius: 12px;
+        border: none;
+        background: #f1f5f9;
+        color: #64748b;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .tab-btn.active {
+        background: #3b82f6;
+        color: white;
+      }
+
+      .shop-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        overflow-y: auto;
+        flex: 1;
+        padding: 4px;
+      }
+
+      .shop-item {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        position: relative;
+      }
+
+      .shop-item.owned {
+        border-color: #3b82f6;
+        background: #eff6ff;
+      }
+
+      .shop-item.equipped {
+        border-color: #22c55e;
+        background: #dcfce7;
+        box-shadow: 0 0 0 2px #22c55e;
+      }
+
+      .item-preview {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        display: grid;
+        place-items: center;
+        font-size: 24px;
+      }
+
+      .item-info h3 {
+        margin: 0;
+        font-size: 14px;
+        color: var(--dark);
+      }
+
+      .price-tag {
+        font-size: 12px;
+        font-weight: 700;
+        color: #b45309;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+
+      .status-text {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-top: 5px;
+      }
+
+      .status-text.equip {
+        color: #3b82f6;
+      }
+
+      .status-text.equipped {
+        color: #22c55e;
+      }
+
+      .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #f1f5f9;
+        border: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-weight: bold;
+        color: #64748b;
+      }
+
+      .toast {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-size: 14px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+        z-index: 100;
+      }
+
+      .toast.show {
+        opacity: 1;
+      }
+
+      #game-ttt {
+        background: #1e1b4b;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ttt-container {
+        background: white;
+        padding: 30px;
+        border-radius: 24px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        text-align: center;
+        width: 90%;
+        max-width: 400px;
+      }
+
+      .ttt-header {
+        margin-bottom: 20px;
+        color: #1e293b;
+      }
+
+      .ttt-header h2 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .ttt-status {
+        color: #64748b;
+        font-weight: 600;
+        margin-top: 5px;
+        min-height: 24px;
+      }
+
+      .difficulty-select {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .ttt-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .ttt-cell {
+        background: #f1f5f9;
+        aspect-ratio: 1;
+        border-radius: 12px;
+        border: none;
+        font-size: 40px;
+        font-weight: 900;
+        cursor: pointer;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s, transform 0.1s;
+      }
+
+      .ttt-cell:hover:not(:disabled) {
+        background: #e2e8f0;
+      }
+
+      .ttt-cell:active:not(:disabled) {
+        transform: scale(0.95);
+      }
+
+      .ttt-cell.x {
+        color: #f43f5e;
+      }
+
+      .ttt-cell.o {
+        color: #3b82f6;
+      }
+
+      .ttt-cell.win {
+        background: #dcfce7;
+      }
+
+      .ttt-btn {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 4px 0 #1d4ed8;
+      }
+
+      .ttt-btn:active {
+        transform: translateY(4px);
+        box-shadow: none;
+      }
+
+      #game-chess {
+        background: #111827;
+        align-items: center;
+        justify-content: center;
+        display: flex;
+      }
+
+      .chess-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 450px;
+        height: 100vh;
+        padding-top: 60px;
+        box-sizing: border-box;
+      }
+
+      .chess-ui-top {
+        width: 90%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        color: white;
+      }
+
+      .chess-board-container {
+        width: 90vw;
+        max-width: 400px;
+        aspect-ratio: 1 / 1;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      }
+
+      .theme-wood {
+        background: #5c4033;
+        border: 5px solid #3e2723;
+      }
+
+      .theme-wood .c-cell.light {
+        background-color: #f0d9b5;
+        color: #b58863;
+      }
+
+      .theme-wood .c-cell.dark {
+        background-color: #b58863;
+        color: #f0d9b5;
+      }
+
+      .theme-wood .c-cell.selected {
+        background-color: #a4c639 !important;
+      }
+
+      .theme-wood .c-cell.last-move {
+        background-color: rgba(255, 255, 0, 0.4);
+      }
+
+      .theme-glass {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .theme-glass .c-cell.light {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .theme-glass .c-cell.dark {
+        background-color: rgba(255, 255, 255, 0.25);
+      }
+
+      .theme-glass .c-cell.selected {
+        background-color: rgba(59, 130, 246, 0.5) !important;
+        box-shadow: 0 0 15px #3b82f6;
+      }
+
+      .theme-glass .c-cell.last-move {
+        background-color: rgba(255, 255, 255, 0.4);
+      }
+
+      .chess-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+        width: 100%;
+        height: 100%;
+      }
+
+      .c-cell {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 28px;
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+      }
+
+      @media (min-width: 400px) {
+        .c-cell {
+          font-size: 36px;
+        }
+      }
+
+      .c-piece {
+        z-index: 2;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .c-piece.white {
+        color: #fff;
+        text-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
+      }
+
+      .c-piece.black {
+        color: #000;
+        text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+      }
+
+      .theme-wood .c-piece.black {
+        color: #000;
+      }
+
+      .theme-glass .c-piece.black {
+        color: #000;
+        text-shadow: 0 0 5px white;
+      }
+
+      .chess-controls {
+        width: 90%;
+        background: #1f2937;
+        padding: 15px;
+        border-radius: 16px;
+        color: white;
+      }
+
+      .diff-scroll {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+        scrollbar-width: none;
+      }
+
+      .diff-scroll::-webkit-scrollbar {
+        display: none;
+      }
+
+      .chess-btn {
+        padding: 8px 16px;
+        background: #374151;
+        border: 1px solid #4b5563;
+        color: #9ca3af;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .chess-btn.active {
+        background: #3b82f6;
+        color: white;
+        border-color: #2563eb;
+      }
+
+      .chess-btn.boom {
+        background: linear-gradient(135deg, #ef4444, #b91c1c);
+        color: white;
+        border: none;
+        box-shadow: 0 0 10px #ef4444;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.8;
+        }
+
+        100% {
+          opacity: 1;
+        }
+      }
+
+      .chess-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+      }
+
+      .action-btn {
+        background: #4b5563;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        width: 48%;
+      }
+
+      .action-btn:hover {
+        background: #6b7280;
+      }
+
+      .action-btn.new-game {
+        background: #10b981;
+      }
+
+      .action-btn.multi-btn {
+        background: #8b5cf6;
+      }
+
+      .capture-dot {
+        position: absolute;
+        width: 25%;
+        height: 25%;
+        background: rgba(239, 68, 68, 0.7);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .move-dot {
+        position: absolute;
+        width: 20%;
+        height: 20%;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .status-badge {
+        font-size: 14px;
+        font-weight: bold;
+        padding: 4px 12px;
+        border-radius: 12px;
+        background: #374151;
+      }
+
+      /* --- NEW FPS Styles --- */
+      #game-fps {
+        background: #000;
+        overflow: hidden;
+        position: relative;
+      }
+
+      #fps-render-target {
+        width: 100%;
+        height: 100%;
+      }
+
+      #fps-ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+
+      .ch-line {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .ch-h {
+        width: 100%;
+        height: 2px;
+        top: 9px;
+        left: 0;
+      }
+
+      .ch-v {
+        width: 2px;
+        height: 100%;
+        left: 9px;
+        top: 0;
+      }
+
+      #fps-hud-bottom {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        right: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+
+      .fps-stat-box {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 10px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        font-family: monospace;
+        font-size: 24px;
+        border-left: 4px solid;
+        backdrop-filter: blur(2px);
+      }
+
+      .health-box {
+        border-color: #ef4444;
+      }
+
+      .ammo-box {
+        border-color: #fbbf24;
+      }
+
+      #minimap-container {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 150px;
+        height: 150px;
+        background: rgba(15, 23, 42, 0.8);
+        border: 2px solid #334155;
+        border-radius: 50%;
+        overflow: hidden;
+      }
+
+      #minimap {
+        display: block;
+        width: 100%;
+        height: 100%;
+        opacity: 0.9;
+      }
+
+      #fps-menu {
+        pointer-events: auto;
+        background: rgba(0, 0, 0, 0.7);
+      }
+
+      .map-select {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .map-btn {
+        padding: 8px 16px;
+        background: #334155;
+        border: 2px solid #475569;
+        color: #cbd5e1;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .map-btn.active {
+        border-color: #3b82f6;
+        background: #1e293b;
+        color: white;
+      }
+
+      .fps-msg {
+        position: absolute;
+        top: 30%;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 24px;
+        color: #fbbf24;
+        font-weight: bold;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+
+      .fps-reload-msg {
+        position: absolute;
+        top: 60%;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 16px;
+        color: #ef4444;
+        font-weight: bold;
+        opacity: 0;
+        transition: opacity 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .fps-reload-msg.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="launcher" class="screen">
+      <div class="app-header">
+        <h1>Arcade Hub</h1>
+        <p style="color: #94a3b8; font-weight: 600;">Select a game to play</p>
+      </div>
+      <div class="game-grid">
+        <div class="game-card" onclick="app.launch('flappy')">
+          <div class="game-icon icon-flappy">🐦</div>
+          <div class="game-title">Flappy Bird</div>
+          <span class="game-tag">Action</span>
+        </div>
+        <div class="game-card" onclick="app.launch('ttt')">
+          <div class="game-icon icon-ttt">⭕</div>
+          <div class="game-title">Tic Tac Toe</div>
+          <span class="game-tag">Puzzle / Strategy</span>
+        </div>
+        <div class="game-card" onclick="app.launch('chess')">
+          <div class="game-icon icon-chess">♟️</div>
+          <div class="game-title">Chess</div>
+          <span class="game-tag">Strategy / AI</span>
+        </div>
+        <div class="game-card" onclick="app.launch('fps')">
+          <div class="game-icon icon-fps">🔫</div>
+          <div class="game-title">Krunker Lite</div>
+          <span class="game-tag">FPS / Multiplayer</span>
+        </div>
+      </div>
+    </div>
+    <div id="game-flappy" class="screen hidden">
+      <button class="home-btn" onclick="app.home()">⬅ Menu</button>
+      <div id="flappy-container">
+        <canvas id="game"></canvas>
+        <div class="ui-layer">
+          <div class="hud">
+            <div class="score-group">
+              <div class="score-box" id="score-display">0</div>
+              <div class="coin-display">
+                <div class="coin-icon"></div>
+                <span id="coin-display">0</span>
+              </div>
+            </div>
+            <button class="btn-icon" id="pause-btn">⏸</button>
+          </div>
+          <div id="main-menu" class="menu-screen">
+            <div class="card">
+              <h1 class="flappy-h1" id="menu-title">Flappy Bird</h1>
+              <p class="flappy-p" id="menu-subtitle">Tap play to start!</p>
+              <div class="coin-display" style="justify-content: center; margin-bottom: 15px; background: transparent; border: none; font-size: 18px;">
+                <div class="coin-icon" style="width: 24px; height: 24px;"></div>
+                <span id="menu-coins">0</span> Coins
+              </div>
+              <div class="control-group">
+                <button class="pill-btn" onclick="setDifficulty('Easy')" id="btn-easy">Easy</button>
+                <button class="pill-btn active" onclick="setDifficulty('Normal')" id="btn-normal">Normal</button>
+                <button class="pill-btn" onclick="setDifficulty('Hard')" id="btn-hard">Hard</button>
+              </div>
+              <button class="play-btn" id="action-btn">PLAY</button>
+              <button class="shop-btn-main" id="open-shop-btn">🛒 SHOP</button>
+            </div>
+          </div>
+          <div id="shop-menu" class="menu-screen hidden">
+            <div class="card shop-card">
+              <button class="close-btn" id="close-shop-btn">✕</button>
+              <h1 class="flappy-h1">Store</h1>
+              <div class="coin-display" style="align-self: center; margin-bottom: 10px;">
+                <div class="coin-icon"></div>
+                <span id="shop-coins">0</span>
+              </div>
+              <div class="shop-tabs">
+                <button class="tab-btn active" id="tab-skins">Birds</button>
+                <button class="tab-btn" id="tab-bgs">Scenes</button>
+              </div>
+              <div class="shop-grid" id="shop-grid"></div>
+            </div>
+          </div>
+          <div id="pause-menu" class="menu-screen hidden">
+            <div class="card" style="width: auto; min-width: 200px;">
+              <h1 class="flappy-h1">Paused</h1>
+              <button class="play-btn" id="resume-btn" style="background: var(--primary); box-shadow: 0 4px 0 #be123c;">RESUME</button>
+              <button class="pill-btn" id="quit-btn" style="margin-top: 15px;">Quit Run</button>
+            </div>
+          </div>
+          <div id="toast" class="toast">Not enough coins!</div>
+        </div>
+      </div>
+    </div>
+    <div id="game-ttt" class="screen hidden">
+      <button class="home-btn" onclick="app.home()">⬅ Menu</button>
+      <div id="ttt-lobby" class="lobby-overlay hidden">
+        <div class="lobby-card">
+          <h2 class="lobby-h2">Tic Tac Toe Online</h2>
+          <div id="ttt-lobby-start">
+            <button class="lobby-btn btn-create" onclick="Multiplayer.createLobby('ttt')">Create Lobby</button>
+            <input type="text" id="ttt-join-code" class="lobby-input" placeholder="Enter Room Code">
+            <button class="lobby-btn btn-join" onclick="Multiplayer.joinLobby('ttt')">Join Lobby</button>
+            <button class="lobby-btn btn-cancel" onclick="Multiplayer.close()">Cancel</button>
+          </div>
+          <div id="ttt-lobby-wait" class="hidden">
+            <p style="color:#cbd5e1">Share this code with a friend:</p>
+            <div class="lobby-code-display">
+              <span id="ttt-room-code" class="code-text">...</span>
+            </div>
+            <p style="color:#94a3b8; font-size:12px">Waiting for opponent...</p>
+            <button class="lobby-btn btn-cancel" onclick="Multiplayer.close()">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="ttt-container">
+        <div class="ttt-header">
+          <h2>Tic Tac Toe</h2>
+          <div class="ttt-status" id="ttt-status">Your Turn (X)</div>
+        </div>
+        <div class="difficulty-select">
+          <button class="pill-btn" id="ttt-easy" onclick="tttGame.setDiff('Easy')">Easy</button>
+          <button class="pill-btn active" id="ttt-normal" onclick="tttGame.setDiff('Normal')">Normal</button>
+          <button class="pill-btn" id="ttt-hard" onclick="tttGame.setDiff('Hard')">Hard</button>
+        </div>
+        <div class="ttt-grid" id="ttt-grid"></div>
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button class="ttt-btn" onclick="tttGame.reset()">Restart Game</button>
+          <button class="ttt-btn" style="background:#8b5cf6; box-shadow: 0 4px 0 #6d28d9;" onclick="Multiplayer.open('ttt')">Play Online</button>
+        </div>
+      </div>
+    </div>
+    <div id="game-chess" class="screen hidden">
+      <button class="home-btn" onclick="app.home()">⬅ Menu</button>
+      <div id="chess-lobby" class="lobby-overlay hidden">
+        <div class="lobby-card">
+          <h2 class="lobby-h2">Chess Online</h2>
+          <div id="chess-lobby-start">
+            <button class="lobby-btn btn-create" onclick="Multiplayer.createLobby('chess')">Create Lobby</button>
+            <input type="text" id="chess-join-code" class="lobby-input" placeholder="Enter Room Code">
+            <button class="lobby-btn btn-join" onclick="Multiplayer.joinLobby('chess')">Join Lobby</button>
+            <button class="lobby-btn btn-cancel" onclick="Multiplayer.close()">Cancel</button>
+          </div>
+          <div id="chess-lobby-wait" class="hidden">
+            <p style="color:#cbd5e1">Share this code with a friend:</p>
+            <div class="lobby-code-display">
+              <span id="chess-room-code" class="code-text">...</span>
+            </div>
+            <p style="color:#94a3b8; font-size:12px">Waiting for opponent...</p>
+            <button class="lobby-btn btn-cancel" onclick="Multiplayer.close()">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="chess-layout">
+        <div class="chess-ui-top">
+          <div class="status-badge" id="chess-status">White to Move</div>
+          <div class="status-badge" style="background:none; border: 1px solid #4b5563;" id="chess-diff-display">Mode: Candidate</div>
+        </div>
+        <div class="chess-board-container theme-wood" id="chess-board-wrap">
+          <div class="chess-grid" id="chess-grid"></div>
+        </div>
+        <div class="chess-controls">
+          <div style="font-size: 12px; color: #9ca3af; margin-bottom: 5px; font-weight: bold;">DIFFICULTY</div>
+          <div class="diff-scroll" id="chess-diff-list">
+            <button class="chess-btn" onclick="chessGame.setDiff(0)">Beginner</button>
+            <button class="chess-btn" onclick="chessGame.setDiff(1)">Intermediate</button>
+            <button class="chess-btn active" onclick="chessGame.setDiff(2)">Candidate</button>
+            <button class="chess-btn" onclick="chessGame.setDiff(3)">Master</button>
+            <button class="chess-btn" onclick="chessGame.setDiff(4)">Grandmaster</button>
+            <button class="chess-btn boom" onclick="chessGame.setDiff(5)">BOOM 💥</button>
+          </div>
+          <div style="font-size: 12px; color: #9ca3af; margin-bottom: 5px; margin-top: 10px; font-weight: bold;">BOARD STYLE</div>
+          <div class="diff-scroll">
+            <button class="chess-btn active" id="theme-wood" onclick="chessGame.setTheme('wood')">Classic Wood</button>
+            <button class="chess-btn" id="theme-glass" onclick="chessGame.setTheme('glass')">Modern Glass</button>
+          </div>
+          <div class="chess-actions">
+            <button class="action-btn" onclick="chessGame.undo()">Undo</button>
+            <button class="action-btn new-game" onclick="chessGame.reset()">New Game</button>
+          </div>
+          <button class="action-btn multi-btn" style="width:100%; margin-top:10px;" onclick="Multiplayer.open('chess')">Play with Friend</button>
+        </div>
+      </div>
+    </div>
+    <div id="game-fps" class="screen hidden">
+      <div id="fps-render-target"></div>
+      <div id="fps-ui">
+        <div id="crosshair">
+          <div class="ch-line ch-h"></div>
+          <div class="ch-line ch-v"></div>
+        </div>
+        <div id="minimap-container">
+          <canvas id="minimap" width="150" height="150"></canvas>
+        </div>
+        <div id="fps-hud-bottom">
+          <div class="fps-stat-box health-box">HP <span id="fps-hp">100</span>
+          </div>
+          <div class="fps-stat-box ammo-box">
+            <span id="fps-ammo">30</span> / <span style="font-size:16px;">∞</span>
+          </div>
+        </div>
+        <div class="fps-msg" id="fps-msg">HEADSHOT</div>
+        <div class="fps-reload-msg" id="fps-reload-msg">RELOADING...</div>
+      </div>
+      <button class="home-btn" style="z-index: 100;" onclick="app.home()">⬅ Menu</button>
+      <div id="fps-menu" class="menu-screen">
+        <div class="card" style="max-width: 500px;">
+          <h1 class="flappy-h1">Krunker Lite</h1>
+          <p class="flappy-p">WASD Move | SPACE Jump | SHIFT Slide | R Reload</p>
+          <h3 style="margin:10px 0; color:#64748b;">Select Map</h3>
+          <div class="map-select">
+            <button class="map-btn active" onclick="fpsGame.selectMap('arena', this)">Arena</button>
+            <button class="map-btn" onclick="fpsGame.selectMap('towers', this)">Towers</button>
+            <button class="map-btn" onclick="fpsGame.selectMap('maze', this)">Maze</button>
+            <button class="map-btn" onclick="fpsGame.selectMap('islands', this)">Islands</button>
+          </div>
+          <button class="play-btn" onclick="fpsGame.startLocal()">SINGLE PLAYER</button>
+          <button class="shop-btn-main" style="background:#8b5cf6;" onclick="Multiplayer.open('fps')">MULTIPLAYER LOBBY</button>
+        </div>
+      </div>
+      <div id="fps-lobby" class="lobby-overlay hidden">
+        <div class="lobby-card">
+          <h2 class="lobby-h2">FPS Online Lobby</h2>
+          <div id="fps-lobby-start">
+            <button class="lobby-btn btn-create" onclick="Multiplayer.createLobby('fps')">Create Lobby</button>
+            <input type="text" id="fps-join-code" class="lobby-input" placeholder="Enter Room Code">
+            <button class="lobby-btn btn-join" onclick="Multiplayer.joinLobby('fps')">Join Lobby</button>
+            <button class="lobby-btn btn-cancel" onclick="Multiplayer.close()">Cancel</button>
+          </div>
+          <div id="fps-lobby-wait" class="hidden">
+            <p style="color:#cbd5e1">Share Code:</p>
+            <div class="lobby-code-display">
+              <span id="fps-room-code" class="code-text">...</span>
+            </div>
+            <p style="color:#94a3b8; font-size:12px">Waiting for players...</p>
+            <button class="lobby-btn btn-join" style="background: #22c55e;" onclick="fpsGame.startOnline()">START GAME</button>
+            <button class="lobby-btn btn-cancel" onclick="Multiplayer.close()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const app = {
+        current: 'launcher',
+        launch: function(gameId) {
+          document.getElementById('launcher').classList.add('hidden');
+          if (gameId === 'flappy') {
+            document.getElementById('game-flappy').classList.remove('hidden');
+            this.current = 'flappy';
+            flappyGame.init();
+          } else if (gameId === 'ttt') {
+            document.getElementById('game-ttt').classList.remove('hidden');
+            this.current = 'ttt';
+            tttGame.init();
+          } else if (gameId === 'chess') {
+            document.getElementById('game-chess').classList.remove('hidden');
+            this.current = 'chess';
+            chessGame.init();
+          } else if (gameId === 'fps') {
+            document.getElementById('game-fps').classList.remove('hidden');
+            this.current = 'fps';
+            fpsGame.init();
+          }
+        },
+        home: function() {
+          document.getElementById('game-flappy').classList.add('hidden');
+          document.getElementById('game-ttt').classList.add('hidden');
+          document.getElementById('game-chess').classList.add('hidden');
+          document.getElementById('game-fps').classList.add('hidden');
+          document.getElementById('launcher').classList.remove('hidden');
+          if (this.current === 'flappy') flappyGame.pauseSystem();
+          if (this.current === 'fps') fpsGame.stop();
+          Multiplayer.close(true); // Disconnect if going home
+          this.current = 'launcher';
+        }
+      };
+      /* --- Multiplayer System --- */
+      const Multiplayer = {
+        peer: null,
+        conn: null,
+        gameType: null, // 'ttt' or 'chess' or 'fps'
+        myId: null,
+        isHost: false,
+        open: function(type) {
+          this.gameType = type;
+          document.getElementById(type + '-lobby').classList.remove('hidden');
+          document.getElementById(type + '-lobby-start').classList.remove('hidden');
+          document.getElementById(type + '-lobby-wait').classList.add('hidden');
+        },
+        close: function(disconnect = false) {
+          document.querySelectorAll('.lobby-overlay').forEach(el => el.classList.add('hidden'));
+          if (disconnect && this.peer) {
+            this.peer.destroy();
+            this.peer = null;
+            this.conn = null;
+          }
+        },
+        createLobby: function(type) {
+          this.isHost = true;
+          this.initPeer(type, (id) => {
+            document.getElementById(type + '-lobby-start').classList.add('hidden');
+            document.getElementById(type + '-lobby-wait').classList.remove('hidden');
+            document.getElementById(type + '-room-code').innerText = id;
+          });
+        },
+        joinLobby: function(type) {
+          this.isHost = false;
+          const code = document.getElementById(type + '-join-code').value.trim();
+          if (!code) return alert("Please enter a room code");
+          this.initPeer(type, () => {
+            const conn = this.peer.connect(code);
+            this.setupConnection(conn);
+          });
+        },
+        initPeer: function(type, cb) {
+          if (this.peer) this.peer.destroy();
+          this.peer = new Peer(null, {
+            debug: 1
+          });
+          this.peer.on('open', (id) => {
+            this.myId = id;
+            if (cb) cb(id);
+          });
+          this.peer.on('connection', (conn) => {
+            this.setupConnection(conn);
+          });
+          this.peer.on('error', (err) => {
+            alert("Connection Error: " + err.type);
+          });
+        },
+        setupConnection: function(conn) {
+          this.conn = conn;
+          conn.on('open', () => {
+            if (this.gameType !== 'fps') this.close(); // Close lobby UI for simple games
+            if (this.gameType === 'ttt') {
+              tttGame.startOnline(this.isHost ? 'X' : 'O');
+            } else if (this.gameType === 'chess') {
+              chessGame.startOnline(this.isHost ? 'w' : 'b');
+            } else if (this.gameType === 'fps') {
+              fpsGame.onConnect();
+            }
+          });
+          conn.on('data', (data) => {
+            if (this.gameType === 'ttt') tttGame.handleNetworkMove(data);
+            if (this.gameType === 'chess') chessGame.handleNetworkMove(data);
+            if (this.gameType === 'fps') fpsGame.handleNetworkData(data);
+          });
+          conn.on('close', () => {
+            alert("Opponent disconnected");
+            app.home();
+          });
+        },
+        send: function(data) {
+          if (this.conn && this.conn.open) {
+            this.conn.send(data);
+          }
+        }
+      };
+      const tttGame = {
+        board: Array(9).fill(null),
+        human: 'X',
+        bot: 'O',
+        currentPlayer: 'X',
+        difficulty: 'Normal',
+        active: false,
+        isOnline: false,
+        mySide: null, // For online
+        init: function() {
+          this.renderGrid();
+          this.reset();
+        },
+        setDiff: function(d) {
+          if (this.isOnline) return; // Locked in online
+          this.difficulty = d;
+          document.querySelectorAll('#game-ttt .pill-btn').forEach(b => b.classList.remove('active'));
+          document.getElementById('ttt-' + d.toLowerCase()).classList.add('active');
+          this.reset();
+        },
+        startOnline: function(side) {
+          this.isOnline = true;
+          this.mySide = side;
+          this.board = Array(9).fill(null);
+          this.currentPlayer = 'X';
+          this.active = true;
+          this.renderCells();
+          this.updateStatus(side === 'X' ? "Online: Your Turn (X)" : "Online: Opponent's Turn (X)");
+        },
+        reset: function() {
+          this.isOnline = false; // Reset to local
+          this.board = Array(9).fill(null);
+          const rand = Math.random();
+          this.human = rand < 0.5 ? 'X' : 'O';
+          this.bot = this.human === 'X' ? 'O' : 'X';
+          this.currentPlayer = 'X';
+          this.active = true;
+          this.renderCells();
+          if (this.human === 'X') {
+            this.updateStatus("Your Turn (X)");
+          } else {
+            this.updateStatus("Bot's Turn (X)");
+            setTimeout(() => this.botMove(), 600);
+          }
+        },
+        updateStatus: function(msg) {
+          document.getElementById('ttt-status').innerText = msg;
+        },
+        renderGrid: function() {
+          const grid = document.getElementById('ttt-grid');
+          grid.innerHTML = '';
+          for (let i = 0; i < 9; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'ttt-cell';
+            btn.onclick = () => this.handleCellClick(i);
+            btn.id = `cell-${i}`;
+            grid.appendChild(btn);
+          }
+        },
+        renderCells: function() {
+          this.board.forEach((val, i) => {
+            const btn = document.getElementById(`cell-${i}`);
+            btn.innerText = val || '';
+            btn.className = 'ttt-cell ' + (val ? val.toLowerCase() : '');
+            btn.disabled = val !== null || !this.active;
+          });
+        },
+        handleCellClick: function(index) {
+          if (!this.active || this.board[index]) return;
+          if (this.isOnline) {
+            if (this.currentPlayer !== this.mySide) return; // Not your turn
+            this.makeMove(index, this.mySide);
+            Multiplayer.send({
+              index: index,
+              player: this.mySide
+            });
+          } else {
+            if (this.currentPlayer !== this.human) return;
+            this.makeMove(index, this.human);
+            if (this.active) {
+              this.currentPlayer = this.bot;
+              this.updateStatus("Bot Thinking...");
+              setTimeout(() => this.botMove(), 500);
+            }
+          }
+        },
+        handleNetworkMove: function(data) {
+          if (data.index !== undefined) {
+            this.makeMove(data.index, data.player);
+          }
+        },
+        makeMove: function(index, player) {
+          this.board[index] = player;
+          this.renderCells();
+          const win = this.checkWin(this.board, player);
+          if (win) {
+            this.active = false;
+            this.highlightWin(win);
+            if (this.isOnline) {
+              this.updateStatus(player === this.mySide ? "You Won!" : "Opponent Won!");
+            } else {
+              this.updateStatus(player === this.human ? "You Won!" : "Bot Won!");
+            }
+            return;
+          }
+          if (!this.board.includes(null)) {
+            this.active = false;
+            this.updateStatus("It's a Draw!");
+            return;
+          }
+          // Switch Turn
+          this.currentPlayer = player === 'X' ? 'O' : 'X';
+          if (this.isOnline && this.active) {
+            this.updateStatus(this.currentPlayer === this.mySide ? `Your Turn (${this.mySide})` : `Opponent's Turn (${this.currentPlayer})`);
+          }
+        },
+        botMove: function() {
+          if (!this.active) return;
+          let moveIndex;
+          if (this.difficulty === 'Easy') moveIndex = this.getRandomMove();
+          else if (this.difficulty === 'Hard') moveIndex = this.getBestMove(this.board);
+          else {
+            moveIndex = (Math.random() > 0.7) ? this.getRandomMove() : this.getBestMove(this.board);
+          }
+          this.makeMove(moveIndex, this.bot);
+          if (this.active) {
+            this.currentPlayer = this.human;
+            this.updateStatus(`Your Turn (${this.human})`);
+          }
+        },
+        getRandomMove: function() {
+          const avail = this.board.map((v, i) => v === null ? i : null).filter(v => v !== null);
+          return avail[Math.floor(Math.random() * avail.length)];
+        },
+        getBestMove: function(currentBoard) {
+          let bestScore = -Infinity;
+          let move = -1;
+          for (let i = 0; i < 9; i++) {
+            if (currentBoard[i] === null) {
+              currentBoard[i] = this.bot;
+              let score = this.minimax(currentBoard, 0, false);
+              currentBoard[i] = null;
+              if (score > bestScore) {
+                bestScore = score;
+                move = i;
+              }
+            }
+          }
+          return move;
+        },
+        minimax: function(board, depth, isMaximizing) {
+          if (this.checkWin(board, this.bot)) return 10 - depth;
+          if (this.checkWin(board, this.human)) return depth - 10;
+          if (!board.includes(null)) return 0;
+          if (isMaximizing) {
+            let bestScore = -Infinity;
+            for (let i = 0; i < 9; i++) {
+              if (board[i] === null) {
+                board[i] = this.bot;
+                let score = this.minimax(board, depth + 1, false);
+                board[i] = null;
+                bestScore = Math.max(score, bestScore);
+              }
+            }
+            return bestScore;
+          } else {
+            let bestScore = Infinity;
+            for (let i = 0; i < 9; i++) {
+              if (board[i] === null) {
+                board[i] = this.human;
+                let score = this.minimax(board, depth + 1, true);
+                board[i] = null;
+                bestScore = Math.min(score, bestScore);
+              }
+            }
+            return bestScore;
+          }
+        },
+        checkWin: function(board, player) {
+          const wins = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [2, 4, 6]
+          ];
+          for (let combo of wins) {
+            if (board[combo[0]] === player && board[combo[1]] === player && board[combo[2]] === player) return combo;
+          }
+          return null;
+        },
+        highlightWin: function(combo) {
+          combo.forEach(i => document.getElementById(`cell-${i}`).classList.add('win'));
+        }
+      };
+      const chessGame = {
+        game: null,
+        boardEl: null,
+        selectedSquare: null,
+        difficulty: 2,
+        isAiThinking: false,
+        playerColor: 'w',
+        isOnline: false,
+        tt: new Map(),
+        history: {},
+        killers: {},
+        searchNodes: 0,
+        config: {
+          depth: 3,
+          moveTime: 800
+        },
+        levels: [{
+          name: "Beginner",
+          depth: 1
+        }, {
+          name: "Intermediate",
+          depth: 2
+        }, {
+          name: "Candidate",
+          depth: 3
+        }, {
+          name: "Master",
+          depth: 4
+        }, {
+          name: "Grandmaster",
+          depth: 5
+        }, {
+          name: "BOOM 💥",
+          depth: 99
+        }],
+        pst: {
+          p: [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [50, 50, 50, 50, 50, 50, 50, 50],
+            [10, 10, 20, 30, 30, 20, 10, 10],
+            [5, 5, 10, 25, 25, 10, 5, 5],
+            [0, 0, 0, 20, 20, 0, 0, 0],
+            [5, -5, -10, 0, 0, -10, -5, 5],
+            [5, 10, 10, -20, -20, 10, 10, 5],
+            [0, 0, 0, 0, 0, 0, 0, 0]
+          ],
+          n: [
+            [-50, -40, -30, -30, -30, -30, -40, -50],
+            [-40, -20, 0, 0, 0, 0, -20, -40],
+            [-30, 0, 10, 15, 15, 10, 0, -30],
+            [-30, 5, 15, 20, 20, 15, 5, -30],
+            [-30, 0, 15, 20, 20, 15, 0, -30],
+            [-30, 5, 10, 15, 15, 10, 5, -30],
+            [-40, -20, 0, 5, 5, 0, -20, -40],
+            [-50, -40, -30, -30, -30, -30, -40, -50]
+          ],
+          b: [
+            [-20, -10, -10, -10, -10, -10, -10, -20],
+            [-10, 0, 0, 0, 0, 0, 0, -10],
+            [-10, 0, 5, 10, 10, 5, 0, -10],
+            [-10, 5, 5, 10, 10, 5, 5, -10],
+            [-10, 0, 10, 10, 10, 10, 0, -10],
+            [-10, 10, 10, 10, 10, 10, 10, -10],
+            [-10, 5, 0, 0, 0, 0, 5, -10],
+            [-20, -10, -10, -10, -10, -10, -10, -20]
+          ],
+          r: [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [5, 10, 10, 10, 10, 10, 10, 5],
+            [-5, 0, 0, 0, 0, 0, 0, -5],
+            [-5, 0, 0, 0, 0, 0, 0, -5],
+            [-5, 0, 0, 0, 0, 0, 0, -5],
+            [-5, 0, 0, 0, 0, 0, 0, -5],
+            [-5, 0, 0, 0, 0, 0, 0, -5],
+            [0, 0, 0, 5, 5, 0, 0, 0]
+          ],
+          q: [
+            [-20, -10, -10, -5, -5, -10, -10, -20],
+            [-10, 0, 0, 0, 0, 0, 0, -10],
+            [-10, 0, 5, 5, 5, 5, 0, -10],
+            [-5, 0, 5, 5, 5, 5, 0, -5],
+            [0, 0, 5, 5, 5, 5, 0, -5],
+            [-10, 5, 5, 5, 5, 5, 0, -10],
+            [-10, 0, 5, 0, 0, 0, 0, -10],
+            [-20, -10, -10, -5, -5, -10, -10, -20]
+          ],
+          k: [
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-20, -30, -30, -40, -40, -30, -30, -20],
+            [-10, -20, -20, -20, -20, -20, -20, -10],
+            [20, 20, 0, 0, 0, 0, 20, 20],
+            [20, 30, 10, 0, 0, 10, 30, 20]
+          ]
+        },
+        init: function() {
+          if (typeof Chess === 'undefined') {
+            alert("Chess library failed to load. Check internet.");
+            return;
+          }
+          this.game = new Chess();
+          this.boardEl = document.getElementById('chess-grid');
+          this.reset();
+        },
+        setDiff: function(idx) {
+          if (this.isOnline) return;
+          this.difficulty = idx;
+          this.config.depth = this.levels[idx].depth;
+          const btns = document.querySelectorAll('#chess-diff-list .chess-btn');
+          btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+          document.getElementById('chess-diff-display').innerText = "Mode: " + this.levels[idx].name;
+        },
+        setTheme: function(theme) {
+          const wrap = document.getElementById('chess-board-wrap');
+          wrap.className = `chess-board-container theme-${theme}`;
+          document.getElementById('theme-wood').classList.toggle('active', theme === 'wood');
+          document.getElementById('theme-glass').classList.toggle('active', theme === 'glass');
+        },
+        startOnline: function(color) {
+          this.isOnline = true;
+          this.game.reset();
+          this.selectedSquare = null;
+          this.playerColor = color;
+          this.renderBoard();
+          document.getElementById('chess-diff-display').innerText = "Mode: Online PvP";
+          this.updateStatus();
+        },
+        reset: function() {
+          if (this.game) {
+            this.isOnline = false;
+            this.game.reset();
+            this.selectedSquare = null;
+            this.tt.clear();
+            this.history = {};
+            this.killers = {};
+            this.playerColor = Math.random() < 0.5 ? 'w' : 'b';
+            this.renderBoard();
+            this.updateStatus();
+            document.getElementById('chess-diff-display').innerText = "Mode: " + this.levels[this.difficulty].name;
+            if (this.playerColor === 'b') {
+              this.isAiThinking = true;
+              this.updateStatus("Bot Thinking... (White)");
+              setTimeout(() => this.makeAiMove(), 500);
+            }
+          }
+        },
+        undo: function() {
+          if (this.isOnline) return; // No undo in PVP
+          if (this.game && this.game.history().length >= 2) {
+            if (this.isAiThinking) return;
+            this.game.undo(); // Undo bot
+            this.game.undo(); // Undo human
+            this.selectedSquare = null;
+            this.renderBoard();
+            this.updateStatus();
+          }
+        },
+        renderBoard: function() {
+          this.boardEl.innerHTML = '';
+          const board = this.game.board();
+          const lastMove = this.game.history({
+            verbose: true
+          }).pop();
+          const isWhite = this.playerColor === 'w';
+          for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              let i = isWhite ? r : 7 - r;
+              let j = isWhite ? c : 7 - c;
+              const square = board[i][j];
+              const squareName = String.fromCharCode(97 + j) + (8 - i);
+              const isWhiteSq = (i + j) % 2 === 0;
+              const div = document.createElement('div');
+              div.className = `c-cell ${isWhiteSq ? 'light' : 'dark'}`;
+              if (this.selectedSquare === squareName) div.classList.add('selected');
+              if (lastMove && (lastMove.from === squareName || lastMove.to === squareName)) {
+                div.classList.add('last-move');
+              }
+              if (this.selectedSquare) {
+                const moves = this.game.moves({
+                  square: this.selectedSquare,
+                  verbose: true
+                });
+                const move = moves.find(m => m.to === squareName);
+                if (move) {
+                  const dot = document.createElement('div');
+                  dot.className = move.captured ? 'capture-dot' : 'move-dot';
+                  div.appendChild(dot);
+                }
+              }
+              if (square) {
+                const symbols = {
+                  p: '♟',
+                  n: '♞',
+                  b: '♝',
+                  r: '♜',
+                  q: '♛',
+                  k: '♚'
+                };
+                const span = document.createElement('div');
+                span.className = `c-piece ${square.color === 'w' ? 'white' : 'black'}`;
+                span.innerText = symbols[square.type];
+                div.appendChild(span);
+              }
+              div.onclick = () => this.handleSquareClick(squareName);
+              this.boardEl.appendChild(div);
+            }
+          }
+        },
+        handleSquareClick: function(square) {
+          if (this.game.game_over()) return;
+          if (this.isOnline && this.game.turn() !== this.playerColor) return;
+          if (!this.isOnline && this.isAiThinking) return;
+          if (this.selectedSquare === square) {
+            this.selectedSquare = null;
+            this.renderBoard();
+            return;
+          }
+          if (this.selectedSquare) {
+            const moveObj = {
+              from: this.selectedSquare,
+              to: square,
+              promotion: 'q'
+            };
+            const move = this.game.move(moveObj);
+            if (move) {
+              this.selectedSquare = null;
+              this.renderBoard();
+              this.updateStatus();
+              if (this.isOnline) {
+                Multiplayer.send(moveObj);
+              } else {
+                this.isAiThinking = true;
+                setTimeout(() => this.makeAiMove(), 50);
+              }
+              return;
+            }
+          }
+          const piece = this.game.get(square);
+          if (piece && piece.color === this.playerColor) {
+            this.selectedSquare = square;
+            this.renderBoard();
+          }
+        },
+        handleNetworkMove: function(moveObj) {
+          this.game.move(moveObj);
+          this.renderBoard();
+          this.updateStatus();
+        },
+        updateStatus: function() {
+          const statusEl = document.getElementById('chess-status');
+          if (this.game.in_checkmate()) {
+            const winner = this.game.turn() === 'w' ? 'Black' : 'White';
+            statusEl.innerText = `${winner} Wins!`;
+          } else if (this.game.in_draw()) statusEl.innerText = "Draw!";
+          else {
+            const turn = this.game.turn() === 'w' ? "White" : "Black";
+            if (this.isOnline) {
+              statusEl.innerText = this.game.turn() === this.playerColor ? "Your Turn" : "Opponent's Turn";
+            } else {
+              if (this.game.turn() === this.playerColor) statusEl.innerText = "Your Turn";
+              else statusEl.innerText = "Bot Thinking...";
+            }
+          }
+        },
+        makeAiMove: function() {
+          if (this.game.game_over()) return;
+          const startTime = performance.now();
+          let bestMove = null;
+          this.searchNodes = 0;
+          const isBoom = this.config.depth === 99;
+          const maxDepth = isBoom ? 12 : this.config.depth;
+          if (!isBoom) {
+            bestMove = this.search(maxDepth);
+          } else {
+            for (let d = 1; d <= maxDepth; d++) {
+              const move = this.search(d);
+              if (move) bestMove = move;
+              if (performance.now() - startTime > this.config.moveTime) break;
+            }
+          }
+          if (!bestMove) {
+            const moves = this.game.moves();
+            bestMove = moves[Math.floor(Math.random() * moves.length)];
+          }
+          this.game.move(bestMove);
+          console.log(`AI Move: ${bestMove} | Nodes: ${this.searchNodes} | Time: ${(performance.now()-startTime).toFixed(0)}ms`);
+          this.isAiThinking = false;
+          this.renderBoard();
+          this.updateStatus();
+        },
+        search: function(depth) {
+          let alpha = -Infinity;
+          let beta = Infinity;
+          let bestMove = null;
+          let bestScore = -Infinity;
+          const moves = this.getOrderedMoves(this.game.moves({
+            verbose: true
+          }), 0);
+          for (let i = 0; i < moves.length; i++) {
+            this.game.move(moves[i]);
+            const score = -this.alphabeta(depth - 1, -beta, -alpha, 1);
+            this.game.undo();
+            if (score > bestScore) {
+              bestScore = score;
+              bestMove = moves[i];
+            }
+            if (score > alpha) alpha = score;
+          }
+          return bestMove;
+        },
+        alphabeta: function(depth, alpha, beta, ply) {
+          this.searchNodes++;
+          const fen = this.game.fen().split(' ')[0] + this.game.turn();
+          const ttEntry = this.tt.get(fen);
+          if (ttEntry && ttEntry.depth >= depth) {
+            if (ttEntry.type === 'exact') return ttEntry.score;
+            if (ttEntry.type === 'lower' && ttEntry.score >= beta) return ttEntry.score;
+            if (ttEntry.type === 'upper' && ttEntry.score <= alpha) return ttEntry.score;
+          }
+          if (depth === 0) return this.quiescence(alpha, beta);
+          const moves = this.game.moves({
+            verbose: true
+          });
+          if (moves.length === 0) {
+            if (this.game.in_check()) return -20000 + ply;
+            return 0;
+          }
+          const orderedMoves = this.getOrderedMoves(moves, ply);
+          let type = 'upper';
+          let bestScore = -Infinity;
+          for (let i = 0; i < orderedMoves.length; i++) {
+            this.game.move(orderedMoves[i]);
+            let score;
+            if (i > 3 && depth > 2 && !orderedMoves[i].captured && !this.game.in_check()) {
+              score = -this.alphabeta(depth - 2, -beta, -alpha, ply + 1);
+              if (score > alpha) score = -this.alphabeta(depth - 1, -beta, -alpha, ply + 1);
+            } else {
+              score = -this.alphabeta(depth - 1, -beta, -alpha, ply + 1);
+            }
+            this.game.undo();
+            if (score >= beta) {
+              if (!orderedMoves[i].captured) {
+                if (!this.killers[ply]) this.killers[ply] = [];
+                this.killers[ply][0] = orderedMoves[i].san;
+              }
+              const hKey = orderedMoves[i].from + orderedMoves[i].to;
+              this.history[hKey] = (this.history[hKey] || 0) + (depth * depth);
+              this.tt.set(fen, {
+                depth: depth,
+                score: beta,
+                type: 'lower'
+              });
+              return beta;
+            }
+            if (score > bestScore) {
+              bestScore = score;
+              if (score > alpha) {
+                alpha = score;
+                type = 'exact';
+              }
+            }
+          }
+          this.tt.set(fen, {
+            depth: depth,
+            score: bestScore,
+            type: type
+          });
+          return alpha;
+        },
+        quiescence: function(alpha, beta) {
+          this.searchNodes++;
+          const standPat = this.evaluateBoard();
+          if (standPat >= beta) return beta;
+          if (standPat > alpha) alpha = standPat;
+          const moves = this.game.moves({
+            verbose: true
+          }).filter(m => m.captured);
+          this.sortCaptures(moves);
+          for (const move of moves) {
+            this.game.move(move);
+            const score = -this.quiescence(-beta, -alpha);
+            this.game.undo();
+            if (score >= beta) return beta;
+            if (score > alpha) alpha = score;
+          }
+          return alpha;
+        },
+        evaluateBoard: function() {
+          let total = 0;
+          const board = this.game.board();
+          const turn = this.game.turn();
+          const weights = {
+            p: 100,
+            n: 320,
+            b: 330,
+            r: 500,
+            q: 900,
+            k: 20000
+          };
+          for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+              const piece = board[i][j];
+              if (piece) {
+                let val = weights[piece.type];
+                if (this.pst[piece.type]) {
+                  const r = piece.color === 'w' ? i : 7 - i;
+                  const c = piece.color === 'w' ? j : 7 - j;
+                  if (this.pst[piece.type][r]) val += this.pst[piece.type][r][c];
+                }
+                total += (piece.color === turn ? val : -val);
+              }
+            }
+          }
+          return total;
+        },
+        getOrderedMoves: function(moves, ply) {
+          return moves.sort((a, b) => {
+            if (a.captured && b.captured) return this.getMvvLva(b) - this.getMvvLva(a);
+            if (a.captured) return -1;
+            if (b.captured) return 1;
+            if (this.killers[ply]) {
+              if (this.killers[ply].includes(a.san)) return -1;
+              if (this.killers[ply].includes(b.san)) return 1;
+            }
+            const hScoreA = this.history[a.from + a.to] || 0;
+            const hScoreB = this.history[b.from + b.to] || 0;
+            return hScoreB - hScoreA;
+          });
+        },
+        sortCaptures: function(moves) {
+          moves.sort((a, b) => this.getMvvLva(b) - this.getMvvLva(a));
+        },
+        getMvvLva: function(move) {
+          const values = {
+            p: 1,
+            n: 3,
+            b: 3,
+            r: 5,
+            q: 9,
+            k: 100
+          };
+          return (values[move.captured] * 10) - values[move.piece];
+        }
+      };
+      const flappyGame = (function() {
+        let canvas, ctx, isActive = false;
+        const ui = {
+          score: null,
+          coins: null,
+          menuCoins: null,
+          shopCoins: null,
+          mainMenu: null,
+          shopMenu: null,
+          shopGrid: null,
+          pauseMenu: null,
+          toast: null,
+          menuTitle: null,
+          menuSubtitle: null
+        };
+        const defaultData = {
+          coins: 0,
+          inventory: ['skin_classic', 'bg_day'],
+          equippedSkin: 'skin_classic',
+          equippedBg: 'bg_day'
+        };
+        let userData = defaultData;
+        const SHOP_ITEMS = {
+          skins: [{
+            id: 'skin_classic',
+            name: 'Classic',
+            price: 0,
+            color: '#fbbf24',
+            beak: '#f97316'
+          }, {
+            id: 'skin_blue',
+            name: 'Blue Jay',
+            price: 50,
+            color: '#3b82f6',
+            beak: '#1e293b'
+          }, {
+            id: 'skin_red',
+            name: 'Cardinal',
+            price: 100,
+            color: '#ef4444',
+            beak: '#000000'
+          }, {
+            id: 'skin_alien',
+            name: 'Alien',
+            price: 250,
+            color: '#10b981',
+            beak: '#064e3b'
+          }, {
+            id: 'skin_robo',
+            name: 'Robo-Bird',
+            price: 500,
+            color: '#94a3b8',
+            beak: '#f43f5e'
+          }, {
+            id: 'skin_gold',
+            name: 'Golden',
+            price: 1000,
+            color: '#ffd700',
+            beak: '#ffffff'
+          }],
+          bgs: [{
+            id: 'bg_day',
+            name: 'Day',
+            price: 0,
+            top: '#63c5da',
+            bot: '#c2e9fb'
+          }, {
+            id: 'bg_sunset',
+            name: 'Sunset',
+            price: 75,
+            top: '#c026d3',
+            bot: '#fcd34d'
+          }, {
+            id: 'bg_night',
+            name: 'Midnight',
+            price: 150,
+            top: '#0f172a',
+            bot: '#334155'
+          }, {
+            id: 'bg_retro',
+            name: 'Retro',
+            price: 300,
+            top: '#2e1065',
+            bot: '#ec4899'
+          }]
+        };
+        let currentShopTab = 'skins';
+        const difficulties = {
+          Easy: {
+            gap: 170,
+            speed: 2.0,
+            spawnRate: 140,
+            coinChance: 0.3
+          },
+          Normal: {
+            gap: 140,
+            speed: 3.0,
+            spawnRate: 100,
+            coinChance: 0.5
+          },
+          Hard: {
+            gap: 110,
+            speed: 4.5,
+            spawnRate: 80,
+            coinChance: 0.8
+          }
+        };
+        let config = {
+          difficulty: 'Normal'
+        };
+        let state = {
+          current: 'start',
+          frames: 0,
+          score: 0,
+          gameCoins: 0
+        };
+        const assets = {
+          getSkin: () => SHOP_ITEMS.skins.find(s => s.id === userData.equippedSkin) || SHOP_ITEMS.skins[0],
+          getBg: () => SHOP_ITEMS.bgs.find(b => b.id === userData.equippedBg) || SHOP_ITEMS.bgs[0],
+        };
+        const bird = {
+          x: 50,
+          y: 150,
+          radius: 12,
+          velocity: 0,
+          gravity: 0.25,
+          jump: -4.6,
+          rotation: 0,
+          draw: function() {
+            const skin = assets.getSkin();
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            this.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity * 0.1)));
+            ctx.rotate(this.rotation);
+            ctx.fillStyle = skin.color;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, this.radius, this.radius * 0.8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(6, -6, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(8, -6, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = skin.color;
+            ctx.beginPath();
+            const wingY = (state.current === 'playing' && state.frames % 10 < 5) ? 4 : 0;
+            ctx.ellipse(-6, wingY, 8, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = skin.beak;
+            ctx.beginPath();
+            ctx.moveTo(8, 2);
+            ctx.lineTo(16, 6);
+            ctx.lineTo(8, 10);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+          },
+          update: function() {
+            this.velocity += this.gravity;
+            this.y += this.velocity;
+            if (this.y + this.radius >= canvas.height - fg.h) {
+              this.y = canvas.height - fg.h - this.radius;
+              gameOver();
+            }
+            if (this.y - this.radius <= 0) {
+              this.y = this.radius;
+              this.velocity = 0;
+            }
+          },
+          flap: function() {
+            this.velocity = this.jump;
+          }
+        };
+        const coins = {
+          items: [],
+          reset: function() {
+            this.items = [];
+          },
+          spawn: function(pipeX, pipeTop, pipeGap) {
+            if (Math.random() > difficulties[config.difficulty].coinChance) return;
+            this.items.push({
+              x: pipeX + 26,
+              y: pipeTop + (pipeGap / 2),
+              collected: false,
+              bobOffset: Math.random() * Math.PI * 2
+            });
+          },
+          update: function() {
+            const diff = difficulties[config.difficulty];
+            this.items.forEach(c => {
+              c.x -= diff.speed;
+              if (!c.collected) {
+                const dx = bird.x - c.x;
+                const dy = bird.y - c.y;
+                if (Math.sqrt(dx * dx + dy * dy) < bird.radius + 12) {
+                  c.collected = true;
+                  state.gameCoins++;
+                  userData.coins++;
+                  updateUI();
+                  playSound('coin');
+                }
+              }
+            });
+            this.items = this.items.filter(c => c.x > -50 && !c.collected);
+          },
+          draw: function() {
+            this.items.forEach(c => {
+              const bob = Math.sin(state.frames * 0.1 + c.bobOffset) * 5;
+              ctx.save();
+              ctx.translate(c.x, c.y + bob);
+              ctx.fillStyle = '#fbbf24';
+              ctx.beginPath();
+              ctx.arc(0, 0, 12, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = '#b45309';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+              ctx.fillStyle = '#fcd34d';
+              ctx.beginPath();
+              ctx.arc(0, 0, 8, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = '#b45309';
+              ctx.font = 'bold 12px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('$', 0, 1);
+              ctx.restore();
+            });
+          }
+        };
+        const pipes = {
+          items: [],
+          w: 52,
+          reset: function() {
+            this.items = [];
+          },
+          draw: function() {
+            const bgStyle = assets.getBg();
+            const pipeColor = bgStyle.id === 'bg_night' || bgStyle.id === 'bg_retro' ? '#475569' : '#22c55e';
+            this.items.forEach(p => {
+              const gap = difficulties[config.difficulty].gap;
+              ctx.fillStyle = pipeColor;
+              ctx.strokeStyle = '#000';
+              ctx.lineWidth = 2;
+              ctx.fillRect(p.x, 0, this.w, p.top);
+              ctx.strokeRect(p.x, -2, this.w, p.top + 2);
+              ctx.fillRect(p.x - 2, p.top - 20, this.w + 4, 20);
+              ctx.strokeRect(p.x - 2, p.top - 20, this.w + 4, 20);
+              const botY = p.top + gap;
+              const botH = canvas.height - botY - fg.h;
+              ctx.fillRect(p.x, botY, this.w, botH);
+              ctx.strokeRect(p.x, botY, this.w, botH);
+              ctx.fillRect(p.x - 2, botY, this.w + 4, 20);
+              ctx.strokeRect(p.x - 2, botY, this.w + 4, 20);
+            });
+          },
+          update: function() {
+            const diff = difficulties[config.difficulty];
+            if (state.frames % diff.spawnRate === 0) {
+              const minTop = 50;
+              const maxTop = canvas.height - fg.h - diff.gap - 50;
+              const top = Math.random() * (maxTop - minTop) + minTop;
+              pipes.items.push({
+                x: canvas.width,
+                top: top,
+                passed: false
+              });
+              coins.spawn(canvas.width, top, diff.gap);
+            }
+            for (let i = 0; i < this.items.length; i++) {
+              let p = this.items[i];
+              p.x -= diff.speed;
+              if (bird.x + bird.radius > p.x && bird.x - bird.radius < p.x + this.w) {
+                if (bird.y - bird.radius < p.top || bird.y + bird.radius > p.top + diff.gap) gameOver();
+              }
+              if (p.x + this.w < bird.x && !p.passed) {
+                state.score++;
+                p.passed = true;
+                ui.score.innerText = state.score;
+                playSound('score');
+              }
+              if (p.x + this.w < 0) {
+                this.items.shift();
+                i--;
+              }
+            }
+          }
+        };
+        const bg = {
+          draw: function() {
+            const style = assets.getBg();
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, style.top);
+            gradient.addColorStop(1, style.bot);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+        };
+        const fg = {
+          h: 80,
+          x: 0,
+          draw: function() {
+            const bgStyle = assets.getBg();
+            const color = bgStyle.id === 'bg_night' || bgStyle.id === 'bg_retro' ? '#334155' : '#ded895';
+            const grass = bgStyle.id === 'bg_night' || bgStyle.id === 'bg_retro' ? '#1e293b' : '#4ade80';
+            ctx.fillStyle = color;
+            ctx.fillRect(0, canvas.height - this.h, canvas.width, this.h);
+            ctx.fillStyle = grass;
+            ctx.fillRect(0, canvas.height - this.h, canvas.width, 12);
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.moveTo(0, canvas.height - this.h);
+            ctx.lineTo(canvas.width, canvas.height - this.h);
+            ctx.stroke();
+          },
+          update: function() {
+            if (state.current === 'playing') this.x = (this.x - difficulties[config.difficulty].speed) % 20;
+          }
+        };
+        const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          if (!isActive) return;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          const now = audioCtx.currentTime;
+          if (type === 'coin') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1200, now);
+            osc.frequency.exponentialRampToValueAtTime(1600, now + 0.1);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          } else if (type === 'flap') {
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+          } else if (type === 'score') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(600, now);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+          } else if (type === 'hit') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          }
+          osc.start(now);
+          osc.stop(now + 0.3);
+        }
+
+        function saveData() {
+          localStorage.setItem('flappyShopData', JSON.stringify(userData));
+          updateUI();
+        }
+
+        function updateUI() {
+          ui.coins.innerText = userData.coins;
+          ui.menuCoins.innerText = userData.coins;
+          ui.shopCoins.innerText = userData.coins;
+        }
+
+        function renderShop() {
+          ui.shopGrid.innerHTML = '';
+          const items = currentShopTab === 'skins' ? SHOP_ITEMS.skins : SHOP_ITEMS.bgs;
+          const equippedId = currentShopTab === 'skins' ? userData.equippedSkin : userData.equippedBg;
+          items.forEach(item => {
+            const el = document.createElement('div');
+            const isOwned = userData.inventory.includes(item.id);
+            const isEquipped = item.id === equippedId;
+            el.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+            let previewHtml = currentShopTab === 'skins' ? `
+    						
+						<div class="item-preview" style="background:${item.color}; border-radius: 50%; border:2px solid #000;"></div>` : `
+    						
+						<div class="item-preview" style="background: linear-gradient(${item.top}, ${item.bot});"></div>`;
+            let actionText = isEquipped ? 'EQUIPPED' : (isOwned ? 'EQUIP' : `
+    						
+						<div class="coin-icon" style="width:12px;height:12px;border-width:1px;"></div> ${e.price}`);
+            el.innerHTML = `${previewHtml}
+    						
+						<div class="item-info">
+							<h3>${item.name}</h3>
+							<div class="status-text ${isEquipped ? 'equipped' : 'equip'}">${isOwned && !isEquipped ? 'TAP TO EQUIP' : ''}${isEquipped ? 'ACTIVE' : ''}</div>
+							<div class="price-tag">${!isOwned ? actionText : ''}</div>
+						</div>`;
+            el.onclick = () => handleItemClick(item);
+            ui.shopGrid.appendChild(el);
+          });
+        }
+
+        function handleItemClick(item) {
+          const isOwned = userData.inventory.includes(item.id);
+          const type = currentShopTab === 'skins' ? 'equippedSkin' : 'equippedBg';
+          if (isOwned) {
+            userData[type] = item.id;
+            saveData();
+            renderShop();
+          } else {
+            if (userData.coins >= item.price) {
+              userData.coins -= item.price;
+              userData.inventory.push(item.id);
+              userData[type] = item.id;
+              saveData();
+              renderShop();
+              playSound('score');
+            } else {
+              showToast("Need more coins!");
+              playSound('hit');
+            }
+          }
+        }
+
+        function showToast(msg) {
+          ui.toast.innerText = msg;
+          ui.toast.classList.add('show');
+          setTimeout(() => ui.toast.classList.remove('show'), 2000);
+        }
+
+        function gameOver() {
+          state.current = 'gameover';
+          playSound('hit');
+          saveData();
+          ui.mainMenu.classList.remove('hidden');
+          if (ui.menuTitle) ui.menuTitle.innerText = "GAME OVER";
+          if (ui.menuSubtitle) ui.menuSubtitle.innerText = `Score: ${state.score} | Coins: +${state.gameCoins}`;
+          document.getElementById('action-btn').innerText = "PLAY AGAIN";
+        }
+
+        function resetGame() {
+          bird.y = canvas.height / 2;
+          bird.velocity = 0;
+          bird.rotation = 0;
+          pipes.reset();
+          coins.reset();
+          state.score = 0;
+          state.gameCoins = 0;
+          state.frames = 0;
+          ui.score.innerText = '0';
+        }
+
+        function loop() {
+          if (!isActive) return;
+          if (state.current !== 'paused') {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            bg.draw();
+            fg.update();
+            if (state.current === 'playing') {
+              bird.update();
+              pipes.update();
+              coins.update();
+            }
+            pipes.draw();
+            coins.draw();
+            fg.draw();
+            if (state.current !== 'start') bird.draw();
+            state.frames++;
+          }
+          requestAnimationFrame(loop);
+        }
+
+        function init() {
+          canvas = document.getElementById('game');
+          ctx = canvas.getContext('2d');
+          ui.score = document.getElementById('score-display');
+          ui.coins = document.getElementById('coin-display');
+          ui.menuCoins = document.getElementById('menu-coins');
+          ui.shopCoins = document.getElementById('shop-coins');
+          ui.mainMenu = document.getElementById('main-menu');
+          ui.shopMenu = document.getElementById('shop-menu');
+          ui.shopGrid = document.getElementById('shop-grid');
+          ui.pauseMenu = document.getElementById('pause-menu');
+          ui.toast = document.getElementById('toast');
+          ui.menuTitle = document.getElementById('menu-title');
+          ui.menuSubtitle = document.getElementById('menu-subtitle');
+          userData = JSON.parse(localStorage.getItem('flappyShopData')) || defaultData;
+          updateUI();
+          const r = document.getElementById('flappy-container');
+          canvas.width = r.clientWidth;
+          canvas.height = r.clientHeight;
+          isActive = true;
+          state.current = 'start';
+          ui.mainMenu.classList.remove('hidden');
+          resetGame();
+          loop();
+        }
+
+        function pauseSystem() {
+          isActive = false;
+          state.current = 'paused';
+        }
+        window.setDifficulty = (d) => {
+          config.difficulty = d;
+          document.querySelectorAll('#game-flappy .pill-btn').forEach(b => b.classList.remove('active'));
+          document.getElementById('btn-' + d.toLowerCase()).classList.add('active');
+        };
+        document.getElementById('action-btn').addEventListener('click', function() {
+          state.current = 'playing';
+          resetGame();
+          ui.mainMenu.classList.add('hidden');
+          this.blur();
+        });
+        document.getElementById('open-shop-btn').addEventListener('click', () => {
+          ui.shopMenu.classList.remove('hidden');
+          renderShop();
+        });
+        document.getElementById('close-shop-btn').addEventListener('click', () => {
+          ui.shopMenu.classList.add('hidden');
+        });
+        document.getElementById('tab-skins').addEventListener('click', (e) => {
+          currentShopTab = 'skins';
+          document.getElementById('tab-bgs').classList.remove('active');
+          e.target.classList.add('active');
+          renderShop();
+        });
+        document.getElementById('tab-bgs').addEventListener('click', (e) => {
+          currentShopTab = 'bgs';
+          document.getElementById('tab-skins').classList.remove('active');
+          e.target.classList.add('active');
+          renderShop();
+        });
+        document.getElementById('pause-btn').addEventListener('click', () => {
+          if (state.current === 'playing') {
+            state.current = 'paused';
+            ui.pauseMenu.classList.remove('hidden');
+          }
+        });
+        document.getElementById('resume-btn').addEventListener('click', () => {
+          state.current = 'playing';
+          ui.pauseMenu.classList.add('hidden');
+        });
+        document.getElementById('quit-btn').addEventListener('click', () => {
+          state.current = 'start';
+          ui.pauseMenu.classList.add('hidden');
+          ui.mainMenu.classList.remove('hidden');
+          saveData();
+          resetGame();
+        });
+        document.getElementById('game').addEventListener('mousedown', () => {
+          if (state.current === 'playing') bird.flap();
+          playSound('flap');
+        });
+        document.getElementById('game').addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          if (state.current === 'playing') bird.flap();
+          playSound('flap');
+        }, {
+          passive: false
+        });
+        window.addEventListener('keydown', (e) => {
+          if (app.current === 'flappy' && e.code === 'Space' && state.current === 'playing') {
+            e.preventDefault();
+            bird.flap();
+          }
+          playSound('flap');
+        });
+        return {
+          init,
+          pauseSystem
+        };
+      })();
+      /* --- NEW FPS GAME ENGINE (Krunker Lite) --- */
+      const fpsGame = {
+        scene: null,
+        camera: null,
+        renderer: null,
+        player: {
+          height: 1.6,
+          speed: 0.15,
+          jump: 0.25,
+          velocityY: 0,
+          onGround: false,
+          hp: 100,
+          ammo: 30
+        },
+        keys: {},
+        pitchObject: null,
+        yawObject: null,
+        gunGroup: null,
+        mapData: [],
+        walls: [],
+        isActive: false,
+        isOnline: false,
+        isReloading: false,
+        lastTime: 0,
+        raycaster: null,
+        bullets: [],
+        remotePlayer: null, // Simple 1v1 for now
+        selectedMap: 'arena',
+        maps: {
+          'arena': {
+            size: 20,
+            layout: [
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+              [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1],
+              [1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 1, 0, 0, 2, 2, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 1, 0, 0, 2, 2, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+              [1, 0, 0, 0, 0, 0, 1, 0, 0, 2, 2, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 1, 0, 0, 2, 2, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1],
+              [1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ]
+          },
+          'maze': {
+            size: 20,
+            layout: [
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+              [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+              [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+              [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1],
+              [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 0, 1, 1, 1, 0, 1, 0, 1, 2, 2, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+              [1, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 1, 0, 1],
+              [1, 0, 1, 1, 1, 0, 1, 0, 1, 2, 2, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+              [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+              [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+              [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+              [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ]
+          },
+          'towers': {
+            size: 10,
+            layout: [
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 2, 2, 0, 0, 2, 2, 0, 1],
+              [1, 0, 2, 2, 0, 0, 2, 2, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+              [1, 0, 0, 0, 1, 1, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ]
+          },
+          'islands': {
+            size: 15,
+            layout: [
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1],
+              [1, 0, 1, 1, 0, 0, 2, 2, 2, 0, 0, 1, 1, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 2, 0, 0, 1, 1, 1, 0, 0, 2, 0, 0, 1],
+              [1, 0, 0, 2, 0, 0, 1, 1, 1, 0, 0, 2, 0, 0, 1],
+              [1, 0, 0, 2, 0, 0, 1, 1, 1, 0, 0, 2, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 0, 1, 1, 0, 0, 2, 2, 2, 0, 0, 1, 1, 0, 1],
+              [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1],
+              [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+              [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ]
+          }
+        },
+        init: function() {
+          if (this.renderer) return;
+          const container = document.getElementById('fps-render-target');
+          this.scene = new THREE.Scene();
+          this.scene.background = new THREE.Color(0x87CEEB);
+          this.scene.fog = new THREE.Fog(0x87CEEB, 0, 40);
+          this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+          // Camera Rig
+          this.pitchObject = new THREE.Object3D();
+          this.pitchObject.add(this.camera);
+          this.yawObject = new THREE.Object3D();
+          this.yawObject.position.y = 1.6;
+          this.yawObject.add(this.pitchObject);
+          this.scene.add(this.yawObject);
+          // Add Gun Model
+          this.createGunModel();
+          this.renderer = new THREE.WebGLRenderer({
+            antialias: true
+          });
+          this.renderer.setSize(container.clientWidth, container.clientHeight);
+          this.renderer.shadowMap.enabled = true;
+          container.appendChild(this.renderer.domElement);
+          // Lighting
+          const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+          this.scene.add(ambient);
+          const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+          dirLight.position.set(50, 100, 50);
+          dirLight.castShadow = true;
+          this.scene.add(dirLight);
+          // Raycaster
+          this.raycaster = new THREE.Raycaster();
+          // Controls
+          document.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+            if (e.code === 'KeyR') this.reload();
+          });
+          document.addEventListener('keyup', (e) => this.keys[e.code] = false);
+          document.addEventListener('mousedown', () => {
+            if (this.isActive) this.shoot();
+          });
+          // Mouse Look
+          container.addEventListener('click', () => {
+            if (!this.isActive) return;
+            container.requestPointerLock();
+          });
+          document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === container) {
+              this.yawObject.rotation.y -= e.movementX * 0.002;
+              this.pitchObject.rotation.x -= e.movementY * 0.002;
+              this.pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.pitchObject.rotation.x));
+            }
+          });
+          // Player Model
+          this.createPlayerModel();
+        },
+        createGunModel: function() {
+          this.gunGroup = new THREE.Group();
+          // Main Body
+          const bodyGeo = new THREE.BoxGeometry(0.15, 0.2, 0.6);
+          const bodyMat = new THREE.MeshStandardMaterial({
+            color: 0x333333
+          });
+          const body = new THREE.Mesh(bodyGeo, bodyMat);
+          body.position.z = 0.1;
+          this.gunGroup.add(body);
+          // Barrel
+          const barrelGeo = new THREE.BoxGeometry(0.08, 0.08, 0.6);
+          const barrelMat = new THREE.MeshStandardMaterial({
+            color: 0x111111
+          });
+          const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+          barrel.position.z = -0.4;
+          barrel.position.y = 0.05;
+          this.gunGroup.add(barrel);
+          // Handle
+          const handleGeo = new THREE.BoxGeometry(0.1, 0.25, 0.15);
+          const handleMat = new THREE.MeshStandardMaterial({
+            color: 0x5c4033
+          }); // Wood-ish
+          const handle = new THREE.Mesh(handleGeo, handleMat);
+          handle.position.y = -0.2;
+          handle.rotation.x = 0.2;
+          this.gunGroup.add(handle);
+          // Sight
+          const sightGeo = new THREE.BoxGeometry(0.02, 0.05, 0.02);
+          const sight = new THREE.Mesh(sightGeo, new THREE.MeshStandardMaterial({
+            color: 0xff0000
+          }));
+          sight.position.set(0, 0.12, -0.65);
+          this.gunGroup.add(sight);
+          this.gunGroup.position.set(0.4, -0.3, -0.5);
+          this.pitchObject.add(this.gunGroup);
+        },
+        createPlayerModel: function() {
+          this.remotePlayer = new THREE.Group();
+          // Head
+          const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+          const headMat = new THREE.MeshLambertMaterial({
+            color: 0xffccaa
+          }); // Skin tone
+          const head = new THREE.Mesh(headGeo, headMat);
+          head.position.y = 1.6;
+          this.remotePlayer.add(head);
+          // Body
+          const bodyGeo = new THREE.BoxGeometry(0.5, 0.6, 0.3);
+          const bodyMat = new THREE.MeshLambertMaterial({
+            color: 0x3b82f6
+          }); // Blue shirt
+          const body = new THREE.Mesh(bodyGeo, bodyMat);
+          body.position.y = 1.1;
+          this.remotePlayer.add(body);
+          // Legs
+          const legGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2);
+          const legMat = new THREE.MeshLambertMaterial({
+            color: 0x1e293b
+          }); // Pants
+          const legL = new THREE.Mesh(legGeo, legMat);
+          legL.position.set(-0.15, 0.4, 0);
+          this.remotePlayer.add(legL);
+          const legR = new THREE.Mesh(legGeo, legMat);
+          legR.position.set(0.15, 0.4, 0);
+          this.remotePlayer.add(legR);
+          // Arms
+          const armGeo = new THREE.BoxGeometry(0.15, 0.6, 0.15);
+          const armMat = new THREE.MeshLambertMaterial({
+            color: 0xffccaa
+          });
+          const armL = new THREE.Mesh(armGeo, armMat);
+          armL.position.set(-0.35, 1.1, 0);
+          this.remotePlayer.add(armL);
+          const armR = new THREE.Mesh(armGeo, armMat);
+          armR.position.set(0.35, 1.1, 0);
+          this.remotePlayer.add(armR);
+          this.remotePlayer.position.y = -100;
+          this.scene.add(this.remotePlayer);
+        },
+        selectMap: function(mapName, btn) {
+          this.selectedMap = mapName;
+          document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        },
+        buildMap: function() {
+          this.walls.forEach(w => this.scene.remove(w));
+          this.walls = [];
+          const data = this.maps[this.selectedMap];
+          const size = 3;
+          const layout = data.layout;
+          // Floor
+          const floorGeo = new THREE.PlaneGeometry(200, 200);
+          const floorMat = new THREE.MeshLambertMaterial({
+            color: 0x334155
+          });
+          const floor = new THREE.Mesh(floorGeo, floorMat);
+          floor.rotation.x = -Math.PI / 2;
+          floor.receiveShadow = true;
+          this.scene.add(floor);
+          this.walls.push(floor);
+          const wallGeo = new THREE.BoxGeometry(size, size * 2, size);
+          const wallMat = new THREE.MeshLambertMaterial({
+            color: 0x94a3b8
+          });
+          const tallMat = new THREE.MeshLambertMaterial({
+            color: 0xcbd5e1
+          });
+          for (let z = 0; z < layout.length; z++) {
+            for (let x = 0; x < layout[z].length; x++) {
+              const type = layout[z][x];
+              if (type > 0) {
+                const h = type === 2 ? 4 : 2;
+                const geo = new THREE.BoxGeometry(size, size * h, size);
+                const mesh = new THREE.Mesh(geo, type === 2 ? tallMat : wallMat);
+                mesh.position.set((x - layout[z].length / 2) * size, (size * h) / 2, (z - layout.length / 2) * size);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                this.scene.add(mesh);
+                this.walls.push(mesh);
+              }
+            }
+          }
+          this.yawObject.position.set(0, 5, 0);
+          this.player.velocityY = 0;
+        },
+        startLocal: function() {
+          this.isOnline = false;
+          this.start();
+        },
+        startOnline: function() {
+          this.isOnline = true;
+          Multiplayer.close();
+          this.start();
+        },
+        onConnect: function() {},
+        start: function() {
+          document.getElementById('fps-menu').classList.add('hidden');
+          this.isActive = true;
+          this.player.hp = 100;
+          this.player.ammo = 30;
+          this.isReloading = false;
+          this.updateHUD();
+          this.buildMap();
+          if (!this.loopId) this.loop();
+        },
+        stop: function() {
+          this.isActive = false;
+          document.getElementById('fps-menu').classList.remove('hidden');
+          if (document.pointerLockElement) document.exitPointerLock();
+        },
+        reload: function() {
+          if (this.isReloading || this.player.ammo === 30) return;
+          this.isReloading = true;
+          document.getElementById('fps-reload-msg').classList.add('show');
+          // Gun Animation
+          const startRot = this.gunGroup.rotation.x;
+          this.gunGroup.rotation.x = 1.0; // Rotate gun down
+          setTimeout(() => {
+            this.player.ammo = 30;
+            this.isReloading = false;
+            this.updateHUD();
+            this.gunGroup.rotation.x = startRot;
+            document.getElementById('fps-reload-msg').classList.remove('show');
+          }, 1500);
+        },
+        shoot: function() {
+          if (this.isReloading) return;
+          if (this.player.ammo <= 0) {
+            this.reload();
+            return;
+          }
+          this.player.ammo--;
+          this.updateHUD();
+          // Recoil
+          this.pitchObject.rotation.x += 0.05;
+          this.gunGroup.position.z += 0.2; // Kickback
+          // Raycast Logic
+          this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+          if (this.isOnline) {
+            // Check intersect with children meshes of player group
+            const intersects = this.raycaster.intersectObjects(this.remotePlayer.children);
+            if (intersects.length > 0) {
+              this.showMsg("HIT!");
+              Multiplayer.send({
+                type: 'damage',
+                amt: 25
+              });
+            }
+          }
+          if (this.isOnline) {
+            Multiplayer.send({
+              type: 'shoot'
+            });
+          }
+        },
+        takeDamage: function(amt) {
+          this.player.hp -= amt;
+          if (this.player.hp <= 0) {
+            this.player.hp = 0;
+            this.die();
+          }
+          this.updateHUD();
+        },
+        die: function() {
+          this.showMsg("YOU DIED");
+          // Respawn logic
+          this.yawObject.position.set(Math.random() * 10 - 5, 10, Math.random() * 10 - 5);
+          this.player.hp = 100;
+          this.player.ammo = 30;
+          this.updateHUD();
+          if (this.isOnline) Multiplayer.send({
+            type: 'kill_confirm'
+          });
+        },
+        updateHUD: function() {
+          document.getElementById('fps-hp').innerText = this.player.hp;
+          document.getElementById('fps-ammo').innerText = this.player.ammo;
+          const hpEl = document.querySelector('.health-box');
+          hpEl.style.borderColor = this.player.hp < 30 ? 'red' : '#22c55e';
+        },
+        showMsg: function(txt) {
+          const el = document.getElementById('fps-msg');
+          el.innerText = txt;
+          el.style.opacity = 1;
+          setTimeout(() => el.style.opacity = 0, 1000);
+        },
+        handleNetworkData: function(data) {
+          if (data.type === 'pos') {
+            this.remotePlayer.position.fromArray(data.p);
+            this.remotePlayer.rotation.y = data.r;
+            this.remotePlayer.visible = true;
+          } else if (data.type === 'damage') {
+            this.takeDamage(data.amt);
+          } else if (data.type === 'kill_confirm') {
+            this.showMsg("ENEMY ELIMINATED");
+          }
+        },
+        checkCollision: function(pos) {
+          const pBox = new THREE.Box3().setFromCenterAndSize(pos, new THREE.Vector3(0.5, 1.6, 0.5));
+          for (let w of this.walls) {
+            if (w.geometry.type === 'PlaneGeometry') continue;
+            const wBox = new THREE.Box3().setFromObject(w);
+            if (pBox.intersectsBox(wBox)) return true;
+          }
+          return false;
+        },
+        loop: function() {
+          this.loopId = requestAnimationFrame(() => this.loop());
+          if (!this.isActive) return;
+          // Recoil Recovery
+          if (this.gunGroup) {
+            this.gunGroup.position.z = THREE.MathUtils.lerp(this.gunGroup.position.z, -0.5, 0.1);
+          }
+          // Movement & Slide Logic
+          const isSliding = this.keys['ShiftLeft'];
+          const moveSpeed = isSliding ? this.player.speed * 1.6 : this.player.speed; // Speed boost
+          // Crouch Camera Lerp
+          const targetHeight = isSliding ? 0.9 : 1.6;
+          this.yawObject.children[0].position.y = THREE.MathUtils.lerp(this.yawObject.children[0].position.y, targetHeight - 1.6, 0.2);
+          const dir = new THREE.Vector3();
+          this.camera.getWorldDirection(dir);
+          dir.y = 0;
+          dir.normalize();
+          const right = new THREE.Vector3();
+          right.crossVectors(this.camera.up, dir).normalize();
+          right.negate();
+          let dx = 0,
+            dz = 0;
+          if (this.keys['KeyW']) {
+            dx += dir.x;
+            dz += dir.z;
+          }
+          if (this.keys['KeyS']) {
+            dx -= dir.x;
+            dz -= dir.z;
+          }
+          if (this.keys['KeyA']) {
+            dx -= right.x;
+            dz -= right.z;
+          }
+          if (this.keys['KeyD']) {
+            dx += right.x;
+            dz += right.z;
+          }
+          const nextPos = this.yawObject.position.clone();
+          nextPos.x += dx * moveSpeed;
+          nextPos.z += dz * moveSpeed;
+          if (!this.checkCollision(nextPos)) {
+            this.yawObject.position.x = nextPos.x;
+            this.yawObject.position.z = nextPos.z;
+          }
+          if (this.keys['Space'] && this.player.onGround) {
+            this.player.velocityY = this.player.jump;
+            this.player.onGround = false;
+          }
+          this.player.velocityY -= 0.015;
+          this.yawObject.position.y += this.player.velocityY;
+          if (this.yawObject.position.y <= 1.6) {
+            this.yawObject.position.y = 1.6;
+            this.player.velocityY = 0;
+            this.player.onGround = true;
+          }
+          this.renderer.render(this.scene, this.camera);
+          this.drawMinimap();
+          if (this.isOnline) {
+            Multiplayer.send({
+              type: 'pos',
+              p: this.yawObject.position.toArray(),
+              r: this.yawObject.rotation.y
+            });
+          }
+        },
+        drawMinimap: function() {
+          const canvas = document.getElementById('minimap');
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, 150, 150);
+          const scale = 1.5;
+          const center = 75;
+          ctx.fillStyle = '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(center, center, 4, 0, Math.PI * 2);
+          ctx.fill();
+          if (this.remotePlayer.visible) {
+            const relX = (this.remotePlayer.position.x - this.yawObject.position.x) * scale;
+            const relZ = (this.remotePlayer.position.z - this.yawObject.position.z) * scale;
+            const angle = this.yawObject.rotation.y;
+            const rotX = relX * Math.cos(angle) - relZ * Math.sin(angle);
+            const rotZ = relX * Math.sin(angle) + relZ * Math.cos(angle);
+            const finalX = center + rotX;
+            const finalY = center + rotZ;
+            const dist = Math.sqrt(Math.pow(finalX - center, 2) + Math.pow(finalY - center, 2));
+            if (dist < 75) {
+              ctx.fillStyle = '#ef4444';
+              ctx.beginPath();
+              ctx.arc(finalX, finalY, 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      };
+    </script>
+  </body>
+</html>
